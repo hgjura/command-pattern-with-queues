@@ -12,7 +12,7 @@ namespace CommandPatternWithQueues.Common
         internal static QueueClient queueClient;
         public CommandBase()
         {
-            queueClient = new QueueClient("DefaultEndpointsProtocol=https;AccountName=cbsaauditlyf2e5k26ogpjw;AccountKey=XiKXwt+xShQv4t5nH0CI7IN2bBq9wvQP8Px6maO91M2B7SkKKlaeSpROw/A9hSgsSObp74Jokdw1kVKM21I4Xg==;EndpointSuffix=core.windows.net", "commands");
+            queueClient = new QueueClient(Environment.GetEnvironmentVariable("StorageConnectionString"), "commands");
             queueClient.CreateIfNotExists();
         }
 
