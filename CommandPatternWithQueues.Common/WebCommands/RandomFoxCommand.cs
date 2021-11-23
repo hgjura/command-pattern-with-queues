@@ -10,7 +10,7 @@ namespace CommandPatternWithQueues.Common
 {
     public class RandomFoxCommand : WebCommandBase
     {
-        public override async Task<(bool, Exception)> ExecuteAsync(dynamic command, ILogger log = null, HttpClient client = null)
+        public override async Task<(bool, Exception)> ExecuteAsync(dynamic command, dynamic metadata, ILogger log = null, HttpClient client = null)
         {
             logger = log ?? new DebugLoggerProvider().CreateLogger("default");
             var api = "https://randomfox.ca/floof";

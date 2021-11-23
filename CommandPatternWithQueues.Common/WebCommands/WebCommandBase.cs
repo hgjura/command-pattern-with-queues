@@ -9,6 +9,6 @@ namespace CommandPatternWithQueues.Common
 {
     public abstract class WebCommandBase : CommandBase
     {
-        public abstract Task<(bool, Exception)> ExecuteAsync(dynamic command, ILogger logger = null, HttpClient client = null);
+        public abstract Task<(bool, Exception)> ExecuteAsync(dynamic command, dynamic metadata, ILogger logger = null, HttpClient client = null);
     }
 }

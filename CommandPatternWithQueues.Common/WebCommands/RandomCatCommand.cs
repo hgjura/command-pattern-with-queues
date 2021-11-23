@@ -11,7 +11,7 @@ namespace CommandPatternWithQueues.Common
     public class RandomCatCommand : WebCommandBase
     {
 
-        public override async Task<(bool, Exception)> ExecuteAsync(dynamic command, ILogger log = null, HttpClient client = null)
+        public override async Task<(bool, Exception)> ExecuteAsync(dynamic command, dynamic metadata, ILogger log = null, HttpClient client = null)
         {
             logger = log ?? new DebugLoggerProvider().CreateLogger("default");
             var api = "https://api.thecatapi.com/v1/images/search?format=json";

@@ -30,11 +30,39 @@ namespace CommandPatternWithQueues.Tests
 
             var result = await c.GetCommands();
 
-            //check if something was wrion or if any items were processed at all
+            //check if something was wrong or if any items were processed at all
             Assert.IsTrue(result.Item1); //This value will return true if any items were processed AND there was no errors
 
             //check if 1 or more items were processed
             Assert.IsTrue(result.Item2 > 0 && result.Item2 == 4); //This value keeps the amount of commands that were processed 
+
+            //check if there was any errors
+            Assert.IsTrue(result.Item3.Count == 0); //This value keeps the list of error messages that were encountered. The format of the messages is "{MessageId}:{Exception Messgae}". After retrying x amount of times the message is moved to the deadletterqueue (see code for how this is implemented)
+
+        }
+
+        [TestMethod]
+        public async Task TestingQueuePostAndRetriveCommands()
+        {
+            string _STORAGE_CONNECTIONSTRING = Environment.GetEnvironmentVariable("StorageConnectionString");
+
+            using var client = new HttpClient();
+
+            var c = new Commands(_STORAGE_CONNECTIONSTRING, client, new DebugLoggerProvider().CreateLogger("default"));
+
+            c.AddToQueue<RandomCatCommand>(new { Name = "Laika" });
+            c.AddToQueue<RandomDogCommand>(new { Name = "Scooby-Doo" });
+            c.AddToQueue<RandomFoxCommand>(new { Name = "Penny" });
+
+            await c.FlushQueueAsync();
+
+            var result = await c.GetCommands();
+
+            //check if something was wrong or if any items were processed at all
+            Assert.IsTrue(result.Item1); //This value will return true if any items were processed AND there was no errors
+
+            //check if 1 or more items were processed
+            Assert.IsTrue(result.Item2 > 0 && result.Item2 == 3); //This value keeps the amount of commands that were processed 
 
             //check if there was any errors
             Assert.IsTrue(result.Item3.Count == 0); //This value keeps the list of error messages that were encountered. The format of the messages is "{MessageId}:{Exception Messgae}". After retrying x amount of times the message is moved to the deadletterqueue (see code for how this is implemented)

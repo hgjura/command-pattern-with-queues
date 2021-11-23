@@ -32,7 +32,5 @@ namespace CommandPatternWithQueues.Common
             typemap.Add(nameof(RandomFoxCommand), typeof(RandomFoxCommand));
             typemap.Add(nameof(AddNumbersCommand), typeof(AddNumbersCommand));
         }
-
-        
     }
 }

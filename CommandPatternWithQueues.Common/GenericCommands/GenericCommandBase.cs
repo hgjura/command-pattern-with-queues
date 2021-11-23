@@ -10,6 +10,6 @@ namespace CommandPatternWithQueues.Common
 {
     public abstract class GenericCommandBase : CommandBase
     {
-        public abstract Task<(bool, Exception)> ExecuteAsync(dynamic command, ILogger logger = null);
+        public abstract Task<(bool, Exception)> ExecuteAsync(dynamic command, dynamic metadata, ILogger logger = null);
     }
 }

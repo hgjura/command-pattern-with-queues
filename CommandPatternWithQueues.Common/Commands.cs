@@ -26,11 +26,11 @@ namespace CommandPatternWithQueues.Common
         static QueueClient queueClient_deadletter;
 
 
-        public Commands(string StorageConnectionString, HttpClient Client, ILogger Log, Policy RetryPolicy = null)
+        public Commands(string StorageConnectionString, HttpClient Client, ILogger Log, Policy RetryPolicy = null, string QueueName = null)
         {
             map = new CommandMapper();
 
-            queueClient = new QueueClient(StorageConnectionString, "commands");
+            queueClient = new QueueClient(StorageConnectionString, string.IsNullOrEmpty(QueueName) ? "command-requests" : QueueName);
             queueClient.CreateIfNotExists();
 
             _CONNECTIONSTRING ??= StorageConnectionString;
@@ -49,17 +49,15 @@ namespace CommandPatternWithQueues.Common
 
         public async Task<bool> PostCommand<T>(dynamic CommandContext)
         {
+           
+            var command = _PrepareCommandBody(CommandContext, typeof(T).Name);
 
-            dynamic commandBody = new ExpandoObject();
-            commandBody.CommandType = typeof(T).Name;
-            commandBody.UniqueId = Guid.NewGuid();
-            commandBody.CommandContext = CommandContext;
+            command.Metadata.PostedOn = DateTime.UtcNow;
 
-            var r = await queueClient.SendMessageAsync(JsonConvert.SerializeObject(commandBody));
+            var r = await queueClient.SendMessageAsync(JsonConvert.SerializeObject(command));
 
             return r != null ? true : false;
         }
-
         
         public async Task<(bool, int, List<string>)> GetCommands(int timeWindowinMinues = 1)
         {
@@ -106,16 +104,72 @@ namespace CommandPatternWithQueues.Common
             return result;
         }
 
+
+        #region Commands Stack functionality
+
+        private Queue<dynamic> queue = new Queue<dynamic>();
+        
+        public void AddToQueue<T>(dynamic CommandContext) => queue.Enqueue(_PrepareCommandBody(CommandContext, typeof(T).Name));
+           
+        public async Task FlushQueueAsync()
+        {
+            Guid correlationId = Guid.NewGuid();
+            int queueorder = 0;
+            int islast = queue.Count;
+
+            while (queue.Count > 0)
+            {
+                queueorder++;
+
+                var command = queue.Dequeue();
+
+                command.Metadata.IsCorrelated = true;
+                command.Metadata.CorrelationId = correlationId;
+                command.Metadata.OrderId = queueorder;
+                command.Metadata.IsLast = queue.Count == 0;
+
+                command.Metadata.PostedOn = DateTime.UtcNow;
+
+                var r = await queueClient.SendMessageAsync(JsonConvert.SerializeObject(command));
+            }
+        }
+
+
+        #endregion
+
+        public static bool DoesPropertyExist(dynamic obj, string name)
+        {
+            if (obj is ExpandoObject)
+                return ((IDictionary<string, object>)obj).ContainsKey(name);
+
+            return obj.GetType().GetProperty(name) != null;
+        }
+
+        private dynamic _PrepareCommandBody(dynamic commandcontext, string commandname)
+        {
+            dynamic commandBody = new ExpandoObject();
+            
+            commandBody.CommandContext = commandcontext;
+            
+            commandBody.Metadata = new ExpandoObject() as dynamic;
+
+            commandBody.Metadata.UniqueId = Guid.NewGuid();
+            commandBody.Metadata.CommandType = commandname;
+
+            return commandBody;
+        }
+
         private async Task<(bool, Exception)> _ProcessCommands(string commandBody, ILogger log = null, HttpClient client = null)
         {
             try
             {
 
                 dynamic m = JsonConvert.DeserializeObject<ExpandoObject>(commandBody);
-                var type = m.CommandType?.ToString();
+               
                 var context = (dynamic)m.CommandContext;
-                var id = Guid.Parse(m.UniqueId);
-
+                var meta = (dynamic)m.Metadata;
+                var type = meta.CommandType?.ToString();
+           
                 if (!string.IsNullOrEmpty(type))
                 {
                     var t = map.Get(type);
@@ -125,14 +179,13 @@ namespace CommandPatternWithQueues.Common
 
                     if (i is GenericCommandBase)
                     {
-                        return await t.InvokeMember("ExecuteAsync", BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.Public, null, i, new object[] { context, log });
+                        return await t.InvokeMember("ExecuteAsync", BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.Public, null, i, new object[] { context, meta, log });
                     }
                     else if (i is WebCommandBase)
                     {
-                        return await t.InvokeMember("ExecuteAsync", BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.Public, null, i, new object[] { context, log, client });
+                        return await t.InvokeMember("ExecuteAsync", BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.Public, null, i, new object[] { context, meta, log, client });
                     }
                     else
-
                     {
                         throw new ApplicationException($"Unknown command base type {t}");
                     }
@@ -163,12 +216,12 @@ namespace CommandPatternWithQueues.Common
             return true;
         }
 
-
         private QueueClient _CreateDeadLetterQueue()
         {
             queueClient_deadletter = new QueueClient(_CONNECTIONSTRING, "commands-deadletterqueue");
             queueClient_deadletter.CreateIfNotExists();
             return queueClient_deadletter;
         }
+
     }
 }

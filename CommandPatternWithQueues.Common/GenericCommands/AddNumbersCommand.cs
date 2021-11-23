@@ -10,7 +10,7 @@ namespace CommandPatternWithQueues.Common
     public class AddNumbersCommand : GenericCommandBase
     {
 
-        public override async Task<(bool, Exception)> ExecuteAsync(dynamic command, ILogger log = null)
+        public override async Task<(bool, Exception)> ExecuteAsync(dynamic command, dynamic meta, ILogger log = null)
         {
             logger = log ?? new DebugLoggerProvider().CreateLogger("default");
 
