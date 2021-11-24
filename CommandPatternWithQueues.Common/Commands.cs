@@ -6,6 +6,7 @@ using Polly;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
@@ -21,15 +22,13 @@ namespace CommandPatternWithQueues.Common
         static ILogger _log;
         static HttpClient _client;
         Policy _policy;
-        CommandMapper map;
         static QueueClient queueClient;
         static QueueClient queueClient_deadletter;
 
 
         public Commands(string StorageConnectionString, HttpClient Client, ILogger Log, Policy RetryPolicy = null, string QueueName = null)
         {
-            map = new CommandMapper();
-
+           
             queueClient = new QueueClient(StorageConnectionString, string.IsNullOrEmpty(QueueName) ? "command-requests" : QueueName);
             queueClient.CreateIfNotExists();
 
@@ -163,7 +162,6 @@ namespace CommandPatternWithQueues.Common
         {
             try
             {
-
                 dynamic m = JsonConvert.DeserializeObject<ExpandoObject>(commandBody);
                
                 var context = (dynamic)m.CommandContext;
@@ -172,10 +170,9 @@ namespace CommandPatternWithQueues.Common
            
                 if (!string.IsNullOrEmpty(type))
                 {
-                    var t = map.Get(type);
+                    dynamic t = Assembly.GetExecutingAssembly().GetTypes().First(t => t.Name == type);
 
                     var i = Activator.CreateInstance(t);
-
 
                     if (i is GenericCommandBase)
                     {
@@ -202,6 +199,7 @@ namespace CommandPatternWithQueues.Common
             }
         }
 
+        
         private async Task<bool> _PostCommandToDeadLetter(QueueMessage message, Exception ex)
         {
             var c = queueClient_deadletter ?? _CreateDeadLetterQueue();

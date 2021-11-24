@@ -5,6 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="CommandMapper.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Azure.Storage.Queues" Version="12.8.0" />
     <PackageReference Include="Microsoft.Extensions.logging" Version="3.1.20" />
     <PackageReference Include="Microsoft.Extensions.logging.debug" Version="3.1.20" />
