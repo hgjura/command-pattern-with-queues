@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using CommandPatternWithQueues.Common;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Debug;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -6,13 +7,22 @@ using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace CommandPatternWithQueues.Common
+namespace CommandPatternWithQueues.RemoteCommands
 {
-    public class RandomFoxCommand : WebCommandBase
+    public class RandomDogCommand : IRemoteCommand
     {
-        public override async Task<(bool, Exception)> ExecuteAsync(dynamic command, dynamic metadata, ILogger log = null, HttpClient client = null)
+        private ILogger logger;
+        private HttpClient client;
+
+        public RandomDogCommand(ILogger logger, HttpClient client)
         {
-            logger = log ?? new DebugLoggerProvider().CreateLogger("default");
+            this.logger = logger;
+            this.client = client;
+        }
+
+        public async Task<(bool, Exception)> ExecuteAsync(dynamic command, dynamic metadata)
+        {
+            logger ??= new DebugLoggerProvider().CreateLogger("default");
             var api = "https://randomfox.ca/floof";
 
             async Task<JObject> getdata(HttpClient c, string api)
@@ -38,7 +48,7 @@ namespace CommandPatternWithQueues.Common
                 var url = json["image"].ToString();
                 var name = (string)command.Name;
                 
-                logger.LogInformation($"<< New random fox by name of {name} retrieved. Check it out here: {url} >>");
+                logger.LogInformation($"<< New random dog by name of {name} retrieved. Check it out here: {url} >>");
 
                 return (true, null);
 

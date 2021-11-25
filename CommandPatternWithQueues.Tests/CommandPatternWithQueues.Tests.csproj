@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CommandPatternWithQueues.Common\CommandPatternWithQueues.Common.csproj" />
+    <ProjectReference Include="..\CommandPatternWithQueues.RemoteCommands\CommandPatternWithQueues.RemoteCommands.csproj" />
   </ItemGroup>
 
 </Project>

@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Storage.Queues" Version="12.8.0" />
+    <PackageReference Include="DryIoc.dll" Version="4.8.4" />
     <PackageReference Include="Microsoft.Extensions.logging" Version="3.1.20" />
     <PackageReference Include="Microsoft.Extensions.logging.debug" Version="3.1.20" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />

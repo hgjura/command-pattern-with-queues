@@ -1,4 +1,5 @@
-﻿using Azure.Storage.Queues;
+﻿using Azure.Storage;
+using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -6,33 +7,42 @@ using Polly;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
-using System.Linq;
 using System.Net.Http;
-using System.Reflection;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace CommandPatternWithQueues.Common
 {
     public class Commands
     {
-        readonly string _CONNECTIONSTRING = null;
+        readonly CommandContainer container;
         readonly long _MAX_DEQUEUE_COUNT_FOR_ERROR = 5;
+
+        readonly ILogger _log;
+        readonly HttpClient _client;
+
+        readonly Queue<dynamic> queue = new Queue<dynamic>();
+
+        readonly QueueClient qsc_requests;
+        readonly QueueClient qsc_requests_deadletter;
+        readonly QueueClient qsc_responses;
+        readonly QueueClient qsc_responses_deadletter;
         
-        static ILogger _log;
-        static HttpClient _client;
         Policy _policy;
-        static QueueClient queueClient;
-        static QueueClient queueClient_deadletter;
 
-
-        public Commands(string StorageConnectionString, HttpClient Client, ILogger Log, Policy RetryPolicy = null, string QueueName = null)
+        public Commands(CommandContainer Container, string AccountName, string AccountKey, HttpClient Client, ILogger Log, Policy RetryPolicy = null, string QueueNamePrefix = null)
         {
-           
-            queueClient = new QueueClient(StorageConnectionString, string.IsNullOrEmpty(QueueName) ? "command-requests" : QueueName);
-            queueClient.CreateIfNotExists();
+            container = Container;
 
-            _CONNECTIONSTRING ??= StorageConnectionString;
+            qsc_requests ??= new QueueClient(new Uri($"https://{AccountName}.queue.core.windows.net/{(string.IsNullOrEmpty(QueueNamePrefix) ? "command-requests" : $"{QueueNamePrefix}-requests")}"), new StorageSharedKeyCredential(AccountName, AccountKey));
+            qsc_requests_deadletter ??= new QueueClient(new Uri($"https://{AccountName}.queue.core.windows.net/{(string.IsNullOrEmpty(QueueNamePrefix) ? "command-requests-deadletter" : $"{QueueNamePrefix}-requests-deadletter")}"), new StorageSharedKeyCredential(AccountName, AccountKey));
+            qsc_responses ??= new QueueClient(new Uri($"https://{AccountName}.queue.core.windows.net/{(string.IsNullOrEmpty(QueueNamePrefix) ? "command-responses" : $"{QueueNamePrefix}-responses")}"), new StorageSharedKeyCredential(AccountName, AccountKey));
+            qsc_responses_deadletter ??= new QueueClient(new Uri($"https://{AccountName}.queue.core.windows.net/{(string.IsNullOrEmpty(QueueNamePrefix) ? "command-responses-deadletter" : $"{QueueNamePrefix}-responses-deadletter")}"), new StorageSharedKeyCredential(AccountName, AccountKey));
+
+            qsc_requests.CreateIfNotExists();
+            qsc_requests_deadletter.CreateIfNotExists();
+            qsc_responses.CreateIfNotExists();
+            qsc_responses_deadletter.CreateIfNotExists();
+
             _client ??= Client;
             _log ??= Log;
 
@@ -45,7 +55,6 @@ namespace CommandPatternWithQueues.Common
 
         }
 
-
         public async Task<bool> PostCommand<T>(dynamic CommandContext)
         {
            
@@ -53,18 +62,19 @@ namespace CommandPatternWithQueues.Common
 
             command.Metadata.PostedOn = DateTime.UtcNow;
 
-            var r = await queueClient.SendMessageAsync(JsonConvert.SerializeObject(command));
+            var r = await qsc_requests.SendMessageAsync(JsonConvert.SerializeObject(command));
 
             return r != null ? true : false;
         }
         
         public async Task<(bool, int, List<string>)> GetCommands(int timeWindowinMinues = 1)
         {
+            //tupple return: Item1: (bool) - if all commands have been processed succesfully or not | Item2: (int) - number of commands that were processed/returned from the remote queue | Item3: (List<string>) - List of all exception messages when Item1 = false;
             var result = (true, 0, new List<string>());
 
             while (true)
             {
-                QueueMessage[] messages = await queueClient.ReceiveMessagesAsync(32, TimeSpan.FromMinutes(timeWindowinMinues));
+                QueueMessage[] messages = await qsc_requests.ReceiveMessagesAsync(32, TimeSpan.FromMinutes(timeWindowinMinues));
 
                 if (messages.Length == 0) break;
 
@@ -76,7 +86,7 @@ namespace CommandPatternWithQueues.Common
 
                     if (b.Item1)
                     {
-                        _ = await queueClient.DeleteMessageAsync(m.MessageId, m.PopReceipt);
+                        _ = await qsc_requests.DeleteMessageAsync(m.MessageId, m.PopReceipt);
                     }
                     else
                     {
@@ -84,20 +94,20 @@ namespace CommandPatternWithQueues.Common
                         result.Item3.Add($"{m.MessageId}:{b.Item2?.Message}:{b.Item2?.InnerException?.Message}");
 
                         _log.LogError(b.Item2?.Message);
-                        _log.LogWarning($"Message could not be processed: [{queueClient.Name}] {m.MessageText}");
+                        _log.LogWarning($"Message could not be processed: [{qsc_requests.Name}] {m.MessageText}");
                         
                         if (m.DequeueCount >= _MAX_DEQUEUE_COUNT_FOR_ERROR)
                         {
                             _log.LogWarning($"Message {m.MessageId} will be moved to dead letter queue.");
 
                            _ = await _PostCommandToDeadLetter(m, b.Item2);
-                           _ = await queueClient.DeleteMessageAsync(m.MessageId, m.PopReceipt);
+                           _ = await qsc_requests.DeleteMessageAsync(m.MessageId, m.PopReceipt);
                         }
                     }
                 }
 
-                QueueProperties properties = await queueClient.GetPropertiesAsync();
-                _log.LogWarning($"[{queueClient.Name}] {properties.ApproximateMessagesCount} messages left in queue.");
+                QueueProperties properties = await qsc_requests.GetPropertiesAsync();
+                _log.LogWarning($"[{qsc_requests.Name}] {properties.ApproximateMessagesCount} messages left in queue.");
             }
 
             return result;
@@ -106,7 +116,6 @@ namespace CommandPatternWithQueues.Common
 
         #region Commands Stack functionality
 
-        private Queue<dynamic> queue = new Queue<dynamic>();
         
         public void AddToQueue<T>(dynamic CommandContext) => queue.Enqueue(_PrepareCommandBody(CommandContext, typeof(T).Name));
            
@@ -129,7 +138,7 @@ namespace CommandPatternWithQueues.Common
 
                 command.Metadata.PostedOn = DateTime.UtcNow;
 
-                var r = await queueClient.SendMessageAsync(JsonConvert.SerializeObject(command));
+                var r = await qsc_requests.SendMessageAsync(JsonConvert.SerializeObject(command));
             }
         }
 
@@ -170,23 +179,16 @@ namespace CommandPatternWithQueues.Common
            
                 if (!string.IsNullOrEmpty(type))
                 {
-                    dynamic t = Assembly.GetExecutingAssembly().GetTypes().First(t => t.Name == type);
 
-                    var i = Activator.CreateInstance(t);
-
-                    if (i is GenericCommandBase)
+                    if (container.IsRegistered(type))
                     {
-                        return await t.InvokeMember("ExecuteAsync", BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.Public, null, i, new object[] { context, meta, log });
+                        return await container.Resolve(type)?.ExecuteAsync(context, meta);
                     }
-                    else if (i is WebCommandBase)
+                    else 
                     {
-                        return await t.InvokeMember("ExecuteAsync", BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.Public, null, i, new object[] { context, meta, log, client });
-                    }
-                    else
-                    {
-                        throw new ApplicationException($"Unknown command base type {t}");
-                    }
-                    
+                        log.LogError($"Command type [{type}] is not registered with the container and cannot be processed. Skipping.");
+                        throw new ApplicationException($"Command type [{type}] is not registered with the container and cannot be processed.");
+                    }                        
                 }
                 else
                 {
@@ -198,27 +200,17 @@ namespace CommandPatternWithQueues.Common
                 return (false, ex);
             }
         }
-
-        
+     
         private async Task<bool> _PostCommandToDeadLetter(QueueMessage message, Exception ex)
         {
-            var c = queueClient_deadletter ?? _CreateDeadLetterQueue();
-
             dynamic commandBody = new ExpandoObject();
             commandBody.ErrorMesssage = ex.Message;
             commandBody.InnerErrorMesssage = ex.InnerException?.Message;
             commandBody.OriginalMessageId = Guid.NewGuid();
             commandBody.OriginalMessageBody = message.MessageText;
 
-            var r = await c.SendMessageAsync(JsonConvert.SerializeObject(commandBody));
+            var r = await qsc_requests_deadletter.SendMessageAsync(JsonConvert.SerializeObject(commandBody));
             return true;
-        }
-
-        private QueueClient _CreateDeadLetterQueue()
-        {
-            queueClient_deadletter = new QueueClient(_CONNECTIONSTRING, "commands-deadletterqueue");
-            queueClient_deadletter.CreateIfNotExists();
-            return queueClient_deadletter;
         }
 
     }

@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using CommandPatternWithQueues.Common;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Debug;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -6,14 +7,22 @@ using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace CommandPatternWithQueues.Common
+namespace CommandPatternWithQueues.RemoteCommands
 {
-    public class RandomCatCommand : WebCommandBase
+    public class RandomCatCommand : IRemoteCommand
     {
+        private ILogger logger;
+        private HttpClient client;
 
-        public override async Task<(bool, Exception)> ExecuteAsync(dynamic command, dynamic metadata, ILogger log = null, HttpClient client = null)
+        public RandomCatCommand(ILogger logger, HttpClient client)
         {
-            logger = log ?? new DebugLoggerProvider().CreateLogger("default");
+            this.logger = logger;
+            this.client = client;
+        }
+
+        public async Task<(bool, Exception)> ExecuteAsync(dynamic command, dynamic metadata)
+        {
+            logger ??= new DebugLoggerProvider().CreateLogger("default");
             var api = "https://api.thecatapi.com/v1/images/search?format=json";
 
 
