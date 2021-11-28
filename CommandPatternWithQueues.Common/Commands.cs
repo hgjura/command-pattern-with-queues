@@ -55,19 +55,52 @@ namespace CommandPatternWithQueues.Common
 
         }
 
+        #region Commands
+        //command.Metadata.UniqueId
+        //command.Metadata.CommandType
+        //command.Metadata.IsCorrelated - queue
+        //command.Metadata.CorrelationId - queue
+        //command.Metadata.OrderId - queue
+        //command.Metadata.IsLast - queue
+        //command.Metadata.CommandPostedOn
+        //command.Metadata.CommandProcessedOn
+        //command.Metadata.CommandAttemptedAndFailedOn
+        //command.Metadata.CommandRespondedOn
+        //command.Metadata.CommandSentToDdlOn
+
+        //ddl.OrginalCommandMetadata
+        //ddl.OriginalCommandContext
+        //ddl.UniqueId
+        //ddl.ErrorMessage
+        //ddl.InnerErrorMesssage
+        //ddl.PostedToDeadletterQueueOn
+
+        //response.ResponseUniqueId
+        //response.ResponseType
+        //response.ResponsePostedOn
+
+        #region Single Commands functionality
         public async Task<bool> PostCommand<T>(dynamic CommandContext)
         {
-           
-            var command = _PrepareCommandBody(CommandContext, typeof(T).Name);
+            var commandBody = new ExpandoObject() as dynamic;
+            commandBody.Metadata = new ExpandoObject() as dynamic;
+            commandBody.CommandContext = new ExpandoObject() as dynamic;
 
-            command.Metadata.PostedOn = DateTime.UtcNow;
+            commandBody.CommandContext = CommandContext;
 
-            var r = await qsc_requests.SendMessageAsync(JsonConvert.SerializeObject(command));
+            commandBody.Metadata.UniqueId = Guid.NewGuid();
+            commandBody.Metadata.CommandType = typeof(T).Name;
+            commandBody.Metadata.CommandPostedOn = DateTime.UtcNow;
+
+
+            var r = await qsc_requests.SendMessageAsync(JsonConvert.SerializeObject(commandBody));
 
             return r != null ? true : false;
         }
+
         
-        public async Task<(bool, int, List<string>)> GetCommands(int timeWindowinMinues = 1)
+
+        public async Task<(bool, int, List<string>)> ExecuteCommands(int timeWindowinMinues = 1)
         {
             //tupple return: Item1: (bool) - if all commands have been processed succesfully or not | Item2: (int) - number of commands that were processed/returned from the remote queue | Item3: (List<string>) - List of all exception messages when Item1 = false;
             var result = (true, 0, new List<string>());
@@ -82,7 +115,7 @@ namespace CommandPatternWithQueues.Common
 
                 foreach (var m in messages)
                 {
-                    var b = await _ProcessCommands(m.MessageText, _log, _client);
+                    var b = await _ProcessCommands(m.MessageText, _log);
 
                     if (b.Item1)
                     {
@@ -113,11 +146,22 @@ namespace CommandPatternWithQueues.Common
             return result;
         }
 
+        #endregion
 
-        #region Commands Stack functionality
+        #region Queue Commands functionality
 
-        
-        public void AddToQueue<T>(dynamic CommandContext) => queue.Enqueue(_PrepareCommandBody(CommandContext, typeof(T).Name));
+
+        public void AddToQueue<T>(dynamic CommandContext)
+        { 
+            var commandBody = new ExpandoObject() as dynamic;
+            commandBody.Metadata = new ExpandoObject() as dynamic;
+            commandBody.CommandContext = new ExpandoObject() as dynamic;
+
+            commandBody.CommandContext = CommandContext;
+
+            queue.Enqueue(commandBody);
+        }
+       
            
         public async Task FlushQueueAsync()
         {
@@ -145,44 +189,42 @@ namespace CommandPatternWithQueues.Common
 
         #endregion
 
-        public static bool DoesPropertyExist(dynamic obj, string name)
+       
+
+        private async Task<(bool, Exception, dynamic, dynamic)> _ProcessCommands(string commandBody, ILogger log)
         {
-            if (obj is ExpandoObject)
-                return ((IDictionary<string, object>)obj).ContainsKey(name);
+            dynamic context = null;
+            dynamic meta = null;
+            string type = null;
 
-            return obj.GetType().GetProperty(name) != null;
-        }
-
-        private dynamic _PrepareCommandBody(dynamic commandcontext, string commandname)
-        {
-            dynamic commandBody = new ExpandoObject();
-            
-            commandBody.CommandContext = commandcontext;
-            
-            commandBody.Metadata = new ExpandoObject() as dynamic;
-
-            commandBody.Metadata.UniqueId = Guid.NewGuid();
-            commandBody.Metadata.CommandType = commandname;
-
-            return commandBody;
-        }
-
-        private async Task<(bool, Exception)> _ProcessCommands(string commandBody, ILogger log = null, HttpClient client = null)
-        {
             try
             {
                 dynamic m = JsonConvert.DeserializeObject<ExpandoObject>(commandBody);
                
-                var context = (dynamic)m.CommandContext;
-                var meta = (dynamic)m.Metadata;
-                var type = meta.CommandType?.ToString();
+                context = (dynamic)m.CommandContext;
+                meta = (dynamic)m.Metadata;
+                type = meta.CommandType?.ToString();
            
                 if (!string.IsNullOrEmpty(type))
                 {
-
-                    if (container.IsRegistered(type))
+                    if (container.IsCommandRegistered(type))
                     {
-                        return await container.Resolve(type)?.ExecuteAsync(context, meta);
+
+                        var cmd = container.ResolveCommand(type);
+
+                        var r = await cmd?.ExecuteAsync(context, meta);
+
+                        if (meta != null && r?.Item1) meta.CommandProcessedOn = DateTime.UtcNow;
+
+                        if (cmd.RequiresResponse && r.Item3 != null && r.Item4 != null)
+                        {
+                            var resp = container.ResolveResponseFromCommand(cmd.GetType());
+
+                            if (resp != null)
+                                PostResponse(resp.GetType(), r.Item3, r.Item4);
+                        }
+
+                        return r;
                     }
                     else 
                     {
@@ -196,22 +238,201 @@ namespace CommandPatternWithQueues.Common
                 }
             }
             catch (Exception ex)
-            { 
-                return (false, ex);
+            {
+                if (meta != null) meta.CommandAttemptedAndFailedOn =  DateTime.UtcNow;
+                return (false, ex, null, null);
             }
         }
      
         private async Task<bool> _PostCommandToDeadLetter(QueueMessage message, Exception ex)
         {
-            dynamic commandBody = new ExpandoObject();
-            commandBody.ErrorMesssage = ex.Message;
-            commandBody.InnerErrorMesssage = ex.InnerException?.Message;
-            commandBody.OriginalMessageId = Guid.NewGuid();
-            commandBody.OriginalMessageBody = message.MessageText;
+            dynamic m = JsonConvert.DeserializeObject<ExpandoObject>(message.MessageText);
+            var context = (dynamic)m.CommandContext;
+            var meta = (dynamic)m.Metadata;
 
-            var r = await qsc_requests_deadletter.SendMessageAsync(JsonConvert.SerializeObject(commandBody));
-            return true;
+
+            var commandDDLBody = new ExpandoObject() as dynamic;
+            commandDDLBody.OrginalCommandMetadata = new ExpandoObject() as dynamic;
+            commandDDLBody.OriginalCommandContext = new ExpandoObject() as dynamic;
+
+            commandDDLBody.OrginalCommandMetadata = meta;
+            commandDDLBody.OriginalCommandContext = context;
+
+            commandDDLBody.UniqueId =  Guid.NewGuid();
+            commandDDLBody.ErrorMessage = ex.Message;
+            commandDDLBody.InnerErrorMesssage = ex.InnerException?.Message;
+            commandDDLBody.PostedToDeadletterQueueOn = DateTime.UtcNow;
+
+            var r = await qsc_requests_deadletter.SendMessageAsync(JsonConvert.SerializeObject(commandDDLBody));
+            
+            return r != null;
         }
 
+        #endregion
+
+        #region Responses
+
+        #region Single Response functionality
+
+        public async Task<bool> PostResponse<T>(dynamic ResponseContext, dynamic OriginalCommandMetadata)
+        {
+            return await PostResponse(typeof(T), ResponseContext, OriginalCommandMetadata);
+        }
+
+        public async Task<bool> PostResponse(Type ResponseType, dynamic ResponseContext, dynamic OriginalCommandMetadata)
+        {
+            var commandBody = new ExpandoObject() as dynamic;
+            commandBody.Metadata = OriginalCommandMetadata;
+            commandBody.ResponseContext = new ExpandoObject() as dynamic;
+
+            commandBody.ResponseContext = ResponseContext;
+
+            commandBody.Metadata.ResponseUniqueId = Guid.NewGuid();
+            commandBody.Metadata.ResponseType = ResponseType.Name;
+            commandBody.Metadata.ResponsePostedOn = DateTime.UtcNow;
+
+
+            var r = await qsc_responses.SendMessageAsync(JsonConvert.SerializeObject(commandBody));
+
+            return r != null ? true : false;
+        }
+
+        public async Task<(bool, int, List<string>)> ExecuteResponses(int timeWindowinMinues = 1)
+        {
+            //tupple return: Item1: (bool) - if all commands have been processed succesfully or not | Item2: (int) - number of commands that were processed/returned from the remote queue | Item3: (List<string>) - List of all exception messages when Item1 = false;
+            var result = (true, 0, new List<string>());
+
+            while (true)
+            {
+                QueueMessage[] messages = await qsc_responses.ReceiveMessagesAsync(32, TimeSpan.FromMinutes(timeWindowinMinues));
+
+                if (messages.Length == 0) break;
+
+                result.Item2 = messages.Length;
+
+                foreach (var m in messages)
+                {
+                    var b = await _ProcessResponses(m.MessageText, _log);
+
+                    if (b.Item1)
+                    {
+                        _ = await qsc_responses.DeleteMessageAsync(m.MessageId, m.PopReceipt);
+                    }
+                    else
+                    {
+                        result.Item1 = false;
+                        result.Item3.Add($"{m.MessageId}:{b.Item2?.Message}:{b.Item2?.InnerException?.Message}");
+
+                        _log.LogError(b.Item2?.Message);
+                        _log.LogWarning($"Message could not be processed: [{qsc_responses.Name}] {m.MessageText}");
+
+                        if (m.DequeueCount >= _MAX_DEQUEUE_COUNT_FOR_ERROR)
+                        {
+                            _log.LogWarning($"Message {m.MessageId} will be moved to dead letter queue.");
+
+                            _ = await _PostResponseToDeadLetter(m, b.Item2);
+                            _ = await qsc_responses.DeleteMessageAsync(m.MessageId, m.PopReceipt);
+                        }
+                    }
+                }
+
+                QueueProperties properties = await qsc_responses.GetPropertiesAsync();
+                _log.LogWarning($"[{qsc_responses.Name}] {properties.ApproximateMessagesCount} messages left in queue.");
+            }
+
+            return result;
+        }
+
+
+
+        #endregion
+
+
+        private async Task<(bool, Exception)> _ProcessResponses(string responseBody, ILogger log)
+        {
+            dynamic context = null;
+            dynamic meta = null;
+            string type = null;
+
+            try
+            {
+                dynamic m = JsonConvert.DeserializeObject<ExpandoObject>(responseBody);
+
+                context = (dynamic)m.ResponseContext;
+                meta = (dynamic)m.Metadata;
+                type = meta.ResponseType?.ToString();
+
+                if (!string.IsNullOrEmpty(type))
+                {
+
+                    if (container.IsResponseRegistered(type))
+                    {
+                        var r = await container.ResolveResponse(type)?.ExecuteAsync(context, meta);
+
+                        if (meta != null && r.Item1) meta.ResponseProcessedOn = DateTime.UtcNow;
+
+                        return r;
+
+                       
+                    }
+                    else
+                    {
+                        log.LogError($"Response type [{type}] is not registered with the container and cannot be processed. Skipping.");
+                        throw new ApplicationException($"Response type [{type}] is not registered with the container and cannot be processed.");
+                    }
+                }
+                else
+                {
+                    throw new ApplicationException("Response type was null or empty.");
+                }
+            }
+            catch (Exception ex)
+            {
+                if (meta != null) meta.ResponseAttemptedAndFailedOn = DateTime.UtcNow;
+                return (false, ex);
+            }
+        }
+
+        private async Task<bool> _PostResponseToDeadLetter(QueueMessage message, Exception ex)
+        {
+            dynamic m = JsonConvert.DeserializeObject<ExpandoObject>(message.MessageText);
+            var context = (dynamic)m.CommandContext;
+            var meta = (dynamic)m.Metadata;
+
+
+            var responseDDLBody = new ExpandoObject() as dynamic;
+            responseDDLBody.OrginalResponseMetadata = new ExpandoObject() as dynamic;
+            responseDDLBody.OriginalResponseContext = new ExpandoObject() as dynamic;
+
+            responseDDLBody.OrginalResponseMetadata = meta;
+            responseDDLBody.OriginalResponseContext = context;
+
+            responseDDLBody.UniqueId =  Guid.NewGuid();
+            responseDDLBody.ErrorMessage = ex.Message;
+            responseDDLBody.InnerErrorMesssage = ex.InnerException?.Message;
+            responseDDLBody.PostedToDeadletterQueueOn = DateTime.UtcNow;
+
+            var r = await qsc_responses_deadletter.SendMessageAsync(JsonConvert.SerializeObject(responseDDLBody));
+            
+            return r != null;
+        }
+
+        #endregion
+
+        #region Helper functions
+
+
+        public static bool DoesPropertyExist(dynamic obj, string name)
+        {
+            if (obj is ExpandoObject)
+                return ((IDictionary<string, object>)obj).ContainsKey(name);
+
+            return obj.GetType().GetProperty(name) != null;
+        }
+
+
+
+
+        #endregion
     }
 }

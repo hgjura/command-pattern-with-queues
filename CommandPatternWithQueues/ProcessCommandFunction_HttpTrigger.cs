@@ -34,7 +34,7 @@ namespace CommandPatternWithQueues.Communication
 
                 _ = await c.PostCommand<AddNumbersCommand>(new { Number1 = 2, Number3 = 3 });
 
-                var result = await c.GetCommands();
+                var result = await c.ExecuteCommands();
 
                 if (result.Item1)
                 {
