@@ -101,11 +101,11 @@ Project description
 
 ## Roadmap
 
-See the [open issues](https://github.com/https://github.com/hgjura/command-pattern-with-queues/issues) for a list of proposed features (and known issues).
+See the [open issues](https://github.com/hgjura/command-pattern-with-queues/issues) for a list of proposed features (and known issues).
 
-- [Top Feature Requests](https://github.com/https://github.com/hgjura/command-pattern-with-queues/issues?q=label%3Aenhancement+is%3Aopen+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
-- [Top Bugs](https://github.com/https://github.com/hgjura/command-pattern-with-queues/issues?q=is%3Aissue+is%3Aopen+label%3Abug+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
-- [Newest Bugs](https://github.com/https://github.com/hgjura/command-pattern-with-queues/issues?q=is%3Aopen+is%3Aissue+label%3Abug)
+- [Top Feature Requests](https://github.com/hgjura/command-pattern-with-queues/issues?q=label%3Aenhancement+is%3Aopen+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
+- [Top Bugs](https://github.com/hgjura/command-pattern-with-queues/issues?q=is%3Aissue+is%3Aopen+label%3Abug+sort%3Areactions-%2B1-desc) (Add your votes using the 👍 reaction)
+- [Newest Bugs](https://github.com/hgjura/command-pattern-with-queues/issues?q=is%3Aopen+is%3Aissue+label%3Abug)
 
 ## Support
 
@@ -114,7 +114,7 @@ See the [open issues](https://github.com/https://github.com/hgjura/command-patte
 
 Reach out to the maintainer at one of the following places:
 
-- [GitHub issues](https://github.com/https://github.com/hgjura/command-pattern-with-queues/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+)
+- [GitHub issues](https://github.com/hgjura/command-pattern-with-queues/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+)
 - The email which is located [in GitHub profile](https://github.com/hgjura)
 
 ## Project assistance
