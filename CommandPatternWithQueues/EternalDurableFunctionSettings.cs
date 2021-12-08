@@ -115,16 +115,8 @@ namespace CommandPatternWithQueues.ExecutingFunctions
 
             try
             {
-                var _container = new CommandContainer();
 
-                _container
-                    .RegisterCommand<RandomCatCommand>()
-                    .RegisterCommand<RandomDogCommand>()
-                    .RegisterCommand<RandomFoxCommand>()
-                    .RegisterCommand<AddNumbersCommand>()
-                    .RegisterResponse<AddNumbersCommand, AddNumbersResponse>();
-
-                var c = new Commands(_container, Configuration["StorageAccountName"], Configuration["StorageAccountKey"], null);
+                var c = new Commands(new CommandContainer(), Configuration["StorageAccountName"], Configuration["StorageAccountKey"], null);
 
                 _ = await c.PostCommand<RandomCatCommand>(new { Name = "Laika" });
 

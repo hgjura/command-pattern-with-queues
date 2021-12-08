@@ -249,14 +249,7 @@ public static async Task<string> FunctionHttpTriggerExecuteAsync(ILogger logger)
 {
     try
     {
-        var _container = new CommandContainer();
-        _container
-            .RegisterCommand<RandomCatCommand>()
-            .RegisterCommand<RandomDogCommand>()
-            .RegisterCommand<RandomFoxCommand>()
-            .RegisterCommand<AddNumbersCommand>()
-            .RegisterResponse<AddNumbersCommand, AddNumbersResponse>();
-        var c = new Commands(_container, Configuration["StorageAccountName"], Configuration["StorageAccountKey"], null);
+        var c = new Commands(new CommandContainer(), Configuration["StorageAccountName"], Configuration["StorageAccountKey"], null);
         _ = await c.PostCommand<RandomCatCommand>(new { Name = "Laika" });
         _ = await c.PostCommand<RandomDogCommand>(new { Name = "Scooby-Doo" });
         _ = await c.PostCommand<RandomFoxCommand>(new { Name = "Penny" });
@@ -265,14 +258,12 @@ public static async Task<string> FunctionHttpTriggerExecuteAsync(ILogger logger)
     }
     catch (Exception ex)
     {
-        return ex.Message;
-  
+        return ex.Message;  
     }
-    
 }
 
 ```
-Here again make sure to register the commands you want to post. Note that here you don’t have to register all the commands and their dependencies, only the commands that you want to post. The container, at this time, does not resolve the object, only needs to know its type.
+Here you dont need to register all commands before you post. The ```PostCommand``` only need to kow the type of the command and the command context, before posting it. The container, at this time, does not resolve the object, only needs to know its type.
 
 Also make sure to pass to the command context, as a ```dynamic``` object, to the container. If the context properties are incorrect or missing, the command execution will fail. For example, ```AddNumbersCommand``` expect as context a ```dynamic``` object that has two properties: ```Number1``` and ```Number2```. If these properties are not there, or named differently, the command execution will fail, and the command will eventually end up in the dead-letter queue.
 
