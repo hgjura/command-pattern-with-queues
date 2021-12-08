@@ -1,22 +1,21 @@
 ﻿using Microsoft.Azure.Functions.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection;
-using System.Net.Http;
+using Microsoft.Extensions.Configuration;
+using System.IO;
 
-[assembly: FunctionsStartup(typeof(CommandPatternWithQueues.Communication.Startup))]
+[assembly: FunctionsStartup(typeof(CommandPatternWithQueues.ExecutingFunctions.Startup))]
 
-namespace CommandPatternWithQueues.Communication
+namespace CommandPatternWithQueues.ExecutingFunctions
 {
     public class Startup : FunctionsStartup
     {
         public override void Configure(IFunctionsHostBuilder builder)
         {
-            builder.Services.AddHttpClient<IHttpClientFactory>();
+            EternalDurableFunctionSettings.FunctionStartupConfigure(builder);
+        }
 
-            //builder.Services.AddSingleton<IMyService>((s) => {
-            //    return new MyService();
-            //});
-
-            //builder.Services.AddSingleton<ILoggerProvider, MyLoggerProvider>();
+        public override void ConfigureAppConfiguration(IFunctionsConfigurationBuilder builder)
+        {
+            EternalDurableFunctionSettings.FunctionConfigureAppConfiguration(builder);
         }
     }
 }

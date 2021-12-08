@@ -1,8 +1,8 @@
-using CommandPatternWithQueues.Common;
 using CommandPatternWithQueues.RemoteCommands;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Debug;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ServerTools.ServerCommands;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -10,16 +10,45 @@ using System.Threading.Tasks;
 namespace CommandPatternWithQueues.Tests
 {
     [TestClass]
-    public class UnitTest1
+    public class TestingRemoteCommands
     {
-        private static CommandContainer _container; 
-        public UnitTest1()
+
+        static CommandContainer _container;
+        static string _queueNamePrefix;
+
+
+        static IConfiguration Configuration { get; set; }
+
+
+        /// <summary>
+        /// Execute once before the test-suite
+        /// </summary>
+        /// 
+
+        [ClassInitialize()]
+        public static void InitTestSuite(TestContext testContext)
         {
-            _container = new CommandContainer();   
-            
+            var builder = new ConfigurationBuilder()
+                .AddUserSecrets<TestingRemoteCommands>(true)
+                .AddJsonFile("local.tests.settings.json", true);
+
+            Configuration = builder.Build();
+
+            _container = new CommandContainer();
+            _queueNamePrefix = nameof(TestingRemoteCommands).ToLower();
+            _ = new Commands(_container, Configuration["StorageAccountName"], Configuration["StorageAccountKey"], null, QueueNamePrefix: _queueNamePrefix);
         }
+
+        [ClassCleanup()]
+        public static void CleanTestSuite()
+        {
+            new Commands(_container, Configuration["StorageAccountName"], Configuration["StorageAccountKey"], null, QueueNamePrefix: _queueNamePrefix).Clear(true);
+        }
+
+
+
         [TestMethod]
-        public async Task TestingSimplePostAndRetriveCommands()
+        public void A1000_TestingSimplePostAndRetriveCommands()
         {
 
             var logger = new DebugLoggerProvider().CreateLogger("default");
@@ -35,19 +64,19 @@ namespace CommandPatternWithQueues.Tests
                 .RegisterResponse<AddNumbersCommand, AddNumbersResponse>();
             
 
-            var c = new Commands(_container, Environment.GetEnvironmentVariable("StorageAccounName"), Environment.GetEnvironmentVariable("StorageAccountKey"), client, logger, QueueNamePrefix: "commands-test");
+            var c = new Commands(_container, Configuration["StorageAccountName"], Configuration["StorageAccountKey"], logger, QueueNamePrefix: _queueNamePrefix);
 
-            _ = await c.PostCommand<RandomCatCommand>(new { Name = "Laika" });
+            _ = c.PostCommand<RandomCatCommand>(new { Name = "Laika" }).GetAwaiter().GetResult();
 
-            _ = await c.PostCommand<RandomDogCommand>(new { Name = "Scooby-Doo" });
+            _ = c.PostCommand<RandomDogCommand>(new { Name = "Scooby-Doo" }).GetAwaiter().GetResult();
 
-            _ = await c.PostCommand<RandomFoxCommand>(new { Name = "Penny" });
+            _ = c.PostCommand<RandomFoxCommand>(new { Name = "Penny" }).GetAwaiter().GetResult();
 
-            _ = await c.PostCommand<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
+            _ = c.PostCommand<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 }).GetAwaiter().GetResult();
 
-            var result1 = await c.ExecuteCommands();
+            var result1 = c.ExecuteCommands().GetAwaiter().GetResult();
 
-            var result2 = await c.ExecuteResponses();
+            var result2 = c.ExecuteResponses().GetAwaiter().GetResult();
 
             //check if something was wrong or if any items were processed at all
             Assert.IsTrue(result1.Item1); //This value will return true if any items were processed AND there was no errors
@@ -84,7 +113,8 @@ namespace CommandPatternWithQueues.Tests
                 //.Register<RandomFoxCommand>()
                 .RegisterCommand<AddNumbersCommand>();
 
-            var c = new Commands(_container, Environment.GetEnvironmentVariable("StorageAccounName"), Environment.GetEnvironmentVariable("StorageAccountKey"), client, logger, QueueNamePrefix: "commands-test");
+
+            var c = new Commands(_container, Configuration["StorageAccountName"], Configuration["StorageAccountKey"], logger, QueueNamePrefix: _queueNamePrefix);
 
             _ = await c.PostCommand<RandomCatCommand>(new { Name = "Laika" });
 
@@ -96,6 +126,7 @@ namespace CommandPatternWithQueues.Tests
 
 
             var result = await c.ExecuteCommands();
+
 
             //check if something was wrong or if any items were processed at all
             Assert.IsTrue(!result.Item1); 
@@ -122,7 +153,7 @@ namespace CommandPatternWithQueues.Tests
                 .RegisterCommand<RandomFoxCommand>()
                 .RegisterCommand<AddNumbersCommand>();
 
-            var c = new Commands(_container, Environment.GetEnvironmentVariable("StorageAccounName"), Environment.GetEnvironmentVariable("StorageAccountKey"), client, logger, QueueNamePrefix: "commands-test");
+            var c = new Commands(_container, Configuration["StorageAccounName"], Configuration["StorageAccountKey"], logger, QueueNamePrefix: "commands-test");
 
             c.AddToQueue<RandomCatCommand>(new { Name = "Laika" });
             c.AddToQueue<RandomDogCommand>(new { Name = "Scooby-Doo" });
@@ -142,5 +173,8 @@ namespace CommandPatternWithQueues.Tests
             Assert.IsTrue(result.Item3.Count == 0); 
 
         }
+
+       
+
     }
 }

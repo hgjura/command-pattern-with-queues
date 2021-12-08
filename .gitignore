@@ -263,3 +263,4 @@ paket-files/
 __pycache__/
 *.pyc
 /CommandPatternWithQueues.Tests/local.settings.runsettings
+/CommandPatternWithQueues.Tests/local.tests.settings.json
