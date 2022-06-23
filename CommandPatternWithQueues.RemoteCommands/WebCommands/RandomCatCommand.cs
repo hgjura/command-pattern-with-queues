@@ -20,7 +20,7 @@ namespace CommandPatternWithQueues.RemoteCommands
             this.client = client;
         }
         public bool RequiresResponse => false;
-        public async Task<(bool, Exception, dynamic, dynamic)> ExecuteAsync(dynamic command, dynamic metadata)
+        public async Task<(bool, Exception, dynamic, CommandMetadata)> ExecuteAsync(dynamic command, CommandMetadata metadata)
         {
             logger ??= new DebugLoggerProvider().CreateLogger("default");
             var api = "https://api.thecatapi.com/v1/images/search?format=json";
@@ -51,12 +51,12 @@ namespace CommandPatternWithQueues.RemoteCommands
                 
                 logger.LogInformation($"<< New random cat by name of {name} retrieved.Check it out here: {url} >>");
                 
-                return (true, null, null, null);
+                return (true, null, null, new CommandMetadata());
             }
             catch (Exception ex)
             {
                 logger.LogError(ex.Message);
-                return (false, ex, null, null);
+                return (false, ex, null, new CommandMetadata());
             }
         }
     }

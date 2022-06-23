@@ -13,7 +13,7 @@ namespace CommandPatternWithQueues.RemoteCommands
         {
             this.logger = logger;
         }
-        public async Task<(bool, Exception)> ExecuteAsync(dynamic response, dynamic metadata)
+        public async Task<(bool, Exception, CommandMetadata)> ExecuteAsync(dynamic response, CommandMetadata metadata)
         {
             logger ??= new DebugLoggerProvider().CreateLogger("default");
 
@@ -25,7 +25,7 @@ namespace CommandPatternWithQueues.RemoteCommands
 
                 logger.LogInformation($"<< Result from the command is in: Result = {r} | Message = {m} >>");
 
-                return await Task.FromResult<(bool, Exception)>((true, null));
+                return await Task.FromResult<(bool, Exception, CommandMetadata) >((true, null, new CommandMetadata()));
 
 
             }
@@ -33,7 +33,7 @@ namespace CommandPatternWithQueues.RemoteCommands
             {
                 logger.LogError(ex.Message);
 
-                return await Task.FromResult<(bool, Exception)>((false, ex));
+                return await Task.FromResult<(bool, Exception, CommandMetadata)>((false, ex, new CommandMetadata()));
             }
             finally
             {

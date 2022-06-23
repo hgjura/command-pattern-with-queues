@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Extensions.Http;
 using ServerTools.ServerCommands;
+using ServerTools.ServerCommands.AzureStorageQueues;
 using System;
 using System.IO;
 using System.Net.Http;
@@ -98,12 +99,13 @@ namespace CommandPatternWithQueues.ExecutingFunctions
                 .RegisterCommand<AddNumbersCommand>()
                 .RegisterResponse<AddNumbersCommand, AddNumbersResponse>();
 
-            var c = new Commands(_container, Configuration["StorageAccountName"], Configuration["StorageAccountKey"], logger);
+
+            var c = await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));
 
 
-            var result1 = await c.ExecuteCommands();
+            var result1 = await c.ExecuteCommandsAsync();
 
-            var result2 = await c.ExecuteResponses();
+            var result2 = await c.ExecuteResponsesAsync();
 
             // return number of commands + responses executed
             return result1.Item2 + result2.Item2;
@@ -116,15 +118,15 @@ namespace CommandPatternWithQueues.ExecutingFunctions
             try
             {
 
-                var c = new Commands(new CommandContainer(), Configuration["StorageAccountName"], Configuration["StorageAccountKey"], null);
+                var c = await new CloudCommands().InitializeAsync(new CommandContainer(), new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));
 
-                _ = await c.PostCommand<RandomCatCommand>(new { Name = "Laika" });
+                _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
 
-                _ = await c.PostCommand<RandomDogCommand>(new { Name = "Scooby-Doo" });
+                _ = await c.PostCommandAsync<RandomDogCommand>(new { Name = "Scooby-Doo" });
 
-                _ = await c.PostCommand<RandomFoxCommand>(new { Name = "Penny" });
+                _ = await c.PostCommandAsync<RandomFoxCommand>(new { Name = "Penny" });
 
-                _ = await c.PostCommand<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
+                _ = await c.PostCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
 
 
                 return "Ok.";
