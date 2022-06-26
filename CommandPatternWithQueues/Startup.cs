@@ -10,12 +10,12 @@ namespace CommandPatternWithQueues.ExecutingFunctions
     {
         public override void Configure(IFunctionsHostBuilder builder)
         {
-            EternalDurableFunctionSettings.FunctionStartupConfigure(builder);
+            FunctionSettingsEternalDurable.FunctionStartupConfigure(builder);
         }
 
         public override void ConfigureAppConfiguration(IFunctionsConfigurationBuilder builder)
         {
-            EternalDurableFunctionSettings.FunctionConfigureAppConfiguration(builder);
+            FunctionSettingsEternalDurable.FunctionConfigureAppConfiguration(builder);
         }
     }
 }

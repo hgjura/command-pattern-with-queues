@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace CommandPatternWithQueues.ExecutingFunctions
 {
-    public class EternalDurableFunctionSettings
+    public class FunctionSettingsEternalDurable
     {
         internal const string FunctionId = "server_commands_func";
 
@@ -26,7 +26,7 @@ namespace CommandPatternWithQueues.ExecutingFunctions
         internal const int MinutesToWaitAfterNoCommandsExecuted = 1;
         internal const int MinutesToWaitAfterErrorInCommandsExecution = 3;
 
-        static IConfiguration Configuration { get; set; }
+        public static IConfiguration Configuration { get; set; }
 
         public static void FunctionStartupConfigure(IFunctionsHostBuilder builder)
         {
@@ -45,14 +45,12 @@ namespace CommandPatternWithQueues.ExecutingFunctions
 
             builder.ConfigurationBuilder
                 .AddJsonFile(Path.Combine(context.ApplicationRootPath, "local.settings.json"), optional: true, reloadOnChange: false)
-                .AddUserSecrets<EternalDurableFunctionSettings>(true)
+                .AddUserSecrets<FunctionSettingsEternalDurable>(true)
                 .AddEnvironmentVariables();
 
             Configuration = builder.ConfigurationBuilder.Build();
+
         }
-
-
-
 
         public static async Task<int> FunctionExecuteAsync(ILogger logger)
         {
@@ -60,7 +58,7 @@ namespace CommandPatternWithQueues.ExecutingFunctions
 
             try
             {
-                r = await ExecuteCommandsAsync(logger);
+                r = await FunctionImplementations.FunctionWrapperExecuteCommandsAsync(Configuration, logger);
 
                 if (r > 0)
                 {
@@ -82,61 +80,6 @@ namespace CommandPatternWithQueues.ExecutingFunctions
             }
 
             return r;            
-        }
-
-        private static async Task<int> ExecuteCommandsAsync(ILogger logger)
-        {
-            var _container = new CommandContainer();
-
-            using var client = new HttpClient();
-
-            _container
-                .Use(logger)
-                .Use(client)
-                .RegisterCommand<RandomCatCommand>()
-                .RegisterCommand<RandomDogCommand>()
-                .RegisterCommand<RandomFoxCommand>()
-                .RegisterCommand<AddNumbersCommand>()
-                .RegisterResponse<AddNumbersCommand, AddNumbersResponse>();
-
-
-            var c = await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));
-
-
-            var result1 = await c.ExecuteCommandsAsync();
-
-            var result2 = await c.ExecuteResponsesAsync();
-
-            // return number of commands + responses executed
-            return result1.Item2 + result2.Item2;
-        }
-
-
-        public static async Task<string> FunctionHttpTriggerExecuteAsync(ILogger logger)
-        {
-
-            try
-            {
-
-                var c = await new CloudCommands().InitializeAsync(new CommandContainer(), new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));
-
-                _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
-
-                _ = await c.PostCommandAsync<RandomDogCommand>(new { Name = "Scooby-Doo" });
-
-                _ = await c.PostCommandAsync<RandomFoxCommand>(new { Name = "Penny" });
-
-                _ = await c.PostCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
-
-
-                return "Ok.";
-            }
-            catch (Exception ex)
-            {
-                return ex.Message;
-          
-            }
-            
         }
     }
 }

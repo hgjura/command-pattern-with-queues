@@ -5,8 +5,6 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommandPatternWithQueues.ExecutingFunctions", "CommandPatternWithQueues\CommandPatternWithQueues.ExecutingFunctions.csproj", "{781165F7-63BC-4BD2-921C-87F9A3E3FE95}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommandPatternWithQueues.Common", "CommandPatternWithQueues.Common\CommandPatternWithQueues.Common.csproj", "{DDB51422-5F5C-4785-ABDB-14B0E65240F6}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommandPatternWithQueues.RemoteCommands", "CommandPatternWithQueues.RemoteCommands\CommandPatternWithQueues.RemoteCommands.csproj", "{8BC27B06-56CB-4B60-A403-1B518BE53922}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommandPatternWithQueues.Tests", "CommandPatternWithQueues.Tests\CommandPatternWithQueues.Tests.csproj", "{CA427E48-EFF4-47C8-B5EF-2714B27F6DD5}"
@@ -21,10 +19,6 @@ Global
 		{781165F7-63BC-4BD2-921C-87F9A3E3FE95}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{781165F7-63BC-4BD2-921C-87F9A3E3FE95}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{781165F7-63BC-4BD2-921C-87F9A3E3FE95}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DDB51422-5F5C-4785-ABDB-14B0E65240F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DDB51422-5F5C-4785-ABDB-14B0E65240F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DDB51422-5F5C-4785-ABDB-14B0E65240F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DDB51422-5F5C-4785-ABDB-14B0E65240F6}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8BC27B06-56CB-4B60-A403-1B518BE53922}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8BC27B06-56CB-4B60-A403-1B518BE53922}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8BC27B06-56CB-4B60-A403-1B518BE53922}.Release|Any CPU.ActiveCfg = Release|Any CPU

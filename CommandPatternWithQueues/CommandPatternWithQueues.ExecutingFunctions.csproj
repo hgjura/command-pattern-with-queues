@@ -12,7 +12,6 @@
     <PackageReference Include="ServerTools.ServerCommands.AzureStorageQueues" Version="1.0.1-2511898392" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\CommandPatternWithQueues.Common\CommandPatternWithQueues.Common.csproj" />
     <ProjectReference Include="..\CommandPatternWithQueues.RemoteCommands\CommandPatternWithQueues.RemoteCommands.csproj" />
   </ItemGroup>
   <ItemGroup>

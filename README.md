@@ -50,18 +50,16 @@
 
 ## About
 
-This is a sample project on how to best integrate and work with the ServerTools.ServerCommands nuget package. It explains and incorporates what the Command development pattern is, and some of the principles of Messaging Architecture. This sample is built with Azure Functions, assuming that the server that, that executes the commands, is Eternal Durable Function, and for simplicity the client that generates and posts the commands is a http-triggered Azure Function. Obviously, this last cold be anything from a command line, app a windows app, a mobile, web app, api, etc., anything that runs .net 5 or higher.
+This is a sample project on how to best integrate and work with the ServerTools.ServerCommands nuget package. It explains and incorporates what the Command development pattern is, and some of the principles of Messaging Architecture. This sample is built with Azure Functions, assuming that the server that, that executes the commands, is Eternal Durable Function, and for simplicity the client that generates and posts the commands is a http-triggered Azure Function. Obviously, this last could be anything from a command line, app a windows app, a mobile, web app, api, etc., anything that runs .NET 6 or higher.
 
 This sample application primarily illustrates the usage of [ServerTools.ServerCommands](https://github.com/hgjura/ServerTools.ServerCommands):
-> ServerCommands facilitates running of units of code or commands remotely. It incorporates principles of messaging architectures used by most messaging tools and frameworks, like [Azure Service Bus](https://docs.microsoft.com/en-ca/azure/service-bus-messaging/), [AWS SQS](https://aws.amazon.com/sqs/), [RabbitMQ](https://www.rabbitmq.com/), or [Azure Storage Queues](https://docs.microsoft.com/en-ca/azure/storage/queues/storage-dotnet-how-to-use-queues?tabs=dotnet), [Apache Kafka](https://kafka.apache.org/) without any of the knowledge and configuration expertise to manage such installations and configurations. 
+> ServerCommands facilitates running of units of code or commands remotely. It incorporates principles of messaging architectures used by most messaging tools and frameworks, like [Azure Service Bus](https://docs.microsoft.com/en-ca/azure/service-bus-messaging/), [AWS SQS](https://aws.amazon.com/sqs/), [RabbitMQ](https://www.rabbitmq.com/), or [Azure Storage Queues](https://docs.microsoft.com/en-ca/azure/storage/queues/storage-dotnet-how-to-use-queues?tabs=dotnet), [Apache Kafka](https://kafka.apache.org/) without any of the knowledge and configuration expertise to manage such installations and configurations. This sample uses the implementation of ServerCommands that has as the underlying service the Azure Storage Queues.
 
 - [Release Notes](https://github.com/hgjura/command-pattern-with-queues/releases/tag/v0.0.2-preview2) :: [Previous Versions](RELEASENOTES.md)
 
 ### Built With
-- C# (NET 5.0)
+- C# (NET 6.0)
 - Azure Functions
-
-
 
 
 # Getting Started
@@ -86,6 +84,13 @@ An illustration of PubSub pattern, with competing consumers. On the left side, a
  ![PubSub pattern with competing cnosumers](/docs/pubsub-overview-pattern-competing-consumers.png)
 
 While there is much literature and examples across the web regarding Messaging integration patterns and architecture, there is no need to know more about it than what is highlighted here. Though, more knowledge is never a bad thing! The book  "[Enterprise Integration Patterns](https://www.enterpriseintegrationpatterns.com/patterns/messaging/)" is a great resources to discover more.
+
+### Working with queues
+
+
+
+
+### Deadletter queues
 
 
 
@@ -171,6 +176,7 @@ It is sort of self-evident of what is happening in this piece of code. The reque
 This solution follows the same pattern or behavior.
 
 
+
 ## Usage
 
 The solution is made of four parts:
@@ -182,44 +188,50 @@ It is best to categorize them by functionality. For example, here I am creating 
 
 - **The ServerTools packages**. There are two flavors of the packages: [the Core package](https://www.nuget.org/packages/ServerTools.ServerCommands/), it is only used if you want to create your own implementation, for a service that do not have a current implementation (see details below on how to create your own implementation for this), and [the implemented packages](https://www.nuget.org/packages/ServerTools.ServerCommands/), which currently are two, one for Azure Storage Queues, and Azure Service Bus (more to come). Most of the time you will use one of these implemented packages. Add one of these packages [![NuGet Badge](https://buildstats.info/nuget/ServerTools.ServerCommands)](https://www.nuget.org/packages/ServerTools.ServerCommands/) to both the Unit Tests project and the Azure Function project. Follow the evolution of this package and its release notes [here](https://github.com/hgjura/ServerTools.ServerCommands). There is a possibility to mix and match these packages, i.e., using both Storage Queues and Service Bus in your project. However, most of the time you would use one or the other.
 
-- **The Azure Function project**. This is the project that handles the processing of remote commands. I have chose to deploy this using an [Eternal Durable Function](https://github.com/hgjura/example-of-eternal-durable-azure-functions). But any service or technology that allows for always-on and some compute power can do this. A windows service, a command line prompt, an AWS Lambda, etc. In implementing this, it is a choice of mine to separate, when possible, the development logic from the plumping logic that goes into Functions code. I have created a static class ```EternalDurableFunctionSettings``` that acts as a facade to the Functions, so once Functions code is good, I don’t have to touch it anymore and only make changes to this class/file. Eternal durable functions are made of 3-4 components so, mixing dec code with plumbing code it gets complicated.
+- **The Azure Function project**. This is the project that handles the processing of remote commands. I have chose to deploy this using an [Eternal Durable Function](https://github.com/hgjura/example-of-eternal-durable-azure-functions). But any service or technology that allows for always-on and some compute power can do this. A windows service, a command line prompt, an AWS Lambda, etc. In implementing this, it is a choice of mine to separate, when possible, the development logic from the configurations and personalisation, and plumping logic that goes into Functions code. I have created a set of static classes (```FunctionsDurable``` and ```FunctionsScheduled```) that holds the generic versions of the durable functions I need (the FunctionsScheduled is a bit  out of place here as it not something used in the Durable Functions, but I needed a place to place a Timer triggered function I need to run in longer intervals, let say of one hour). I  have also created the ```FunctionSettingsEternalDurable``` class that simply holds any configurations and/or personalisations to the generic functions. And than, the third layer, the ```FunctionImplementations``` that holds all the business logic of what all these functions do. Most of the work goes into this third file. This acts as a facade to the Functions, so once Functions code is good, I don’t have to touch it anymore and only make changes to this class/file. Eternal durable functions are made of 3-4 components so, mixing the code with plumbing code it gets complicated.
 
-Initially I setup some wiring-up code for the Functions. I extend the Function ```Startup``` function to feed as a dependency an ```IHttpFactory``` object with the retry policy I want. ```IHttpClient`` is an expensive object and I don't want to create a new one every time I run a command.
+Initially, in the ```FunctionSettingsEternalDurable``` I setup some wiring-up code for the Functions. I extend the Function ```Startup``` function to feed as a dependency an ```IHttpFactory``` object with the retry policy I want. ```IHttpClient`` is an expensive object and I don't want to create a new one every time I run a command.
 
-I also extend the ```ConfigureAppConfiguration``` function of Startup and feed it some configuration options, to get the account key for the storage account, either from a local json file, user secrets, or app settings when deployed to Azure
+I also extend the ```ConfigureAppConfiguration``` function of Startup and feed it some configuration options, to get the account key for the storage account, either from a local json file, user secrets, or app settings when deployed to Azure. If you'd be using the version of the library that uses Azure Service Bus or any other service, here you wold get and inject all the connection information.
 
-Next, I define the orchestrator code as follows:
- ```cs
-public static async Task<int> FunctionExecuteAsync(ILogger logger)
+Next, in the ```FunctionImplementations``` I define the orchestrator code as follows:
+
+ ```csharp
+public static async Task<int> FunctionWrapperExecuteCommandsAsync(ILogger logger)
 {
-    int r = 0;
-    try
-    {
-        r = await ExecuteCommandsAsync(logger);
-        if (r > 0)
-        {
-            logger.LogWarning($"{r} commands were succesfuly executed.");
-        } 
-        else
-        {
-            logger.LogWarning($"No commands were executed. Pausing for {MinutesToWaitAfterNoCommandsExecuted} min(s).");
-            r = MinutesToWaitAfterNoCommandsExecuted;
-        }
-    }
-    catch (Exception ex)
-    {
-        logger.LogError($"{ex.Message} [{ex.InnerException?.Message}]");
-        logger.LogWarning($"An error ocurred. Pausing for {MinutesToWaitAfterErrorInCommandsExecution} min(s).");
-        r = MinutesToWaitAfterErrorInCommandsExecution;
-    }
-    return r;            
+            int r = 0;
+
+            try
+            {
+                r = await ExecuteCommandsAsync(config, logger);
+
+                if (r > 0)
+                {
+                    logger.LogWarning($"{r} commands were succesfuly executed.");
+                }
+                else
+                {
+                    logger.LogWarning($"No commands were executed. Pausing for {FunctionSettingsEternalDurable.MinutesToWaitAfterNoCommandsExecuted} min(s).");
+
+                    r = FunctionSettingsEternalDurable.MinutesToWaitAfterNoCommandsExecuted;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"{ex.Message} [{ex.InnerException?.Message}]");
+                logger.LogWarning($"An error ocurred. Pausing for {FunctionSettingsEternalDurable.MinutesToWaitAfterErrorInCommandsExecution} min(s).");
+
+                r = FunctionSettingsEternalDurable.MinutesToWaitAfterErrorInCommandsExecution;
+            }
+
+            return r;
 }
   ``` 
-This piece of code orchestrates the lifecycle of the Durable Function. Practically, it calls the main function ```ExecuteCommandsAsync```and acts accordingly depending on the returned value. If the function return > 0, it means 1 or more commands were remotely executed, so rerun the function again. If the function returns 0, means that no commands were executed, and so snooze the next run by as many minutes as defined in ```MinutesToWaitAfterNoCommandsExecuted```. If the function throws an unhandled exception, than log exception and snooze by as many minutes as defined in ```MinutesToWaitAfterErrorInCommandsExecution```. 
+This piece of code orchestrates the lifecycle of the Durable Function. Practically, it calls the main function ```ExecuteCommandsAsync```and acts accordingly depending on the returned value. If the function return > 0, it means 1 or more commands were remotely executed, so re-run the function again. If the function returns 0, means that no commands were executed, and so snooze the next run by as many minutes as defined in ```MinutesToWaitAfterNoCommandsExecuted```. If the function throws an unhandled exception, than log exception and snooze by as many minutes as defined in ```MinutesToWaitAfterErrorInCommandsExecution```. 
 
 Next is the function that executes all remote commands + responses.
 
-```cs
+```csharp
 private static async Task<int> ExecuteCommandsAsync(ILogger logger)
 {
     var _container = new CommandContainer();
@@ -244,23 +256,33 @@ Prior to calling ```ExecuteCommands``` or ```ExecuteResponses```, need to regist
 
 Next, and optionally, I created an http triggered function that simply creates and posts a few sample commands, for the above to process.
 
-```cs
-public static async Task<string> FunctionHttpTriggerExecuteAsync(ILogger logger)
-{
-    try
-    {
-        var c = new Commands(new CommandContainer(), Configuration["StorageAccountName"], Configuration["StorageAccountKey"], null);
-        _ = await c.PostCommand<RandomCatCommand>(new { Name = "Laika" });
-        _ = await c.PostCommand<RandomDogCommand>(new { Name = "Scooby-Doo" });
-        _ = await c.PostCommand<RandomFoxCommand>(new { Name = "Penny" });
-        _ = await c.PostCommand<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
-        return "Ok.";
-    }
-    catch (Exception ex)
-    {
-        return ex.Message;  
-    }
-}
+```csharp
+        public static async Task<string> PostCommandsAsync(IConfiguration config, ILogger logger)
+        {
+
+            try
+            {
+
+                var c = await new CloudCommands().InitializeAsync(new CommandContainer(), new AzureStorageQueuesConnectionOptions(config["StorageAccountName"], config["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));
+
+                _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
+
+                _ = await c.PostCommandAsync<RandomDogCommand>(new { Name = "Scooby-Doo" });
+
+                _ = await c.PostCommandAsync<RandomFoxCommand>(new { Name = "Penny" });
+
+                _ = await c.PostCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
+
+
+                return "Ok.";
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+
+            }
+
+        }
 
 ```
 Here you dont need to register all commands before you post. The ```PostCommand``` only need to kow the type of the command and the command context, before posting it. The container, at this time, does not resolve the object, only needs to know its type.

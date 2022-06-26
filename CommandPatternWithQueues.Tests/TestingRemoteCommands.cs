@@ -119,7 +119,6 @@ namespace CommandPatternWithQueues.Tests
 
             var c = await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, logger, QueueNamePrefix: _queueNamePrefix));
 
-
             _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
 
             _ = await c.PostCommandAsync<RandomDogCommand>(new { Name = "Scooby-Doo" });
@@ -127,7 +126,6 @@ namespace CommandPatternWithQueues.Tests
             _ = await c.PostCommandAsync<RandomFoxCommand>(new { Name = "Penny" });
 
             _ = await c.PostCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
-
 
             var result = await c.ExecuteCommandsAsync();
 
@@ -177,8 +175,5 @@ namespace CommandPatternWithQueues.Tests
         //    Assert.IsTrue(result.Item3.Count == 0); 
 
         //}
-
-       
-
     }
 }

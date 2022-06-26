@@ -45,8 +45,5 @@ namespace CommandPatternWithQueues.RemoteCommands
                 
             }
         }
-
     }
-
-
 }
