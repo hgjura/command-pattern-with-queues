@@ -81,11 +81,25 @@ In a nutshell, following the graph above, Application 'A' needs to execute and c
 
 An illustration of PubSub pattern, with competing consumers. On the left side, are a series of client applications that generate messages. They will post their messages in a message queue, being unaware of how or when these messages will be processed/consumed. On the right side are a series of consumer server applications whose job it to process as many of those messages as possible and as fast as they can, unaware of where these messages are coming from and when. 
 
- ![PubSub pattern with competing cnosumers](/docs/pubsub-overview-pattern-competing-consumers.png)
+ ![PubSub pattern with competing consumers](/docs/pubsub-overview-pattern-competing-consumers.png)
 
 While there is much literature and examples across the web regarding Messaging integration patterns and architecture, there is no need to know more about it than what is highlighted here. Though, more knowledge is never a bad thing! The book  "[Enterprise Integration Patterns](https://www.enterpriseintegrationpatterns.com/patterns/messaging/)" is a great resources to discover more.
 
 ### Working with queues
+Working with queues it is different, and rather unusual, than the most common data computing scenarios. If I can use a metaphore, working with queues is like building a dam in a large and unpredictable river, to stabilize its flow. In one side of the dam (the publisher) is the wild, unpredictable, ill-tempered flow of water, and on the other side (the subscriber) is the multi-channeled, regular, always controlled flow of water. In orfer to achieve a succesful flow, and tame the wild body of water (messages), you will need to run through a series of analysis and strictly apply some fundamental rules.
+
+> Rule #1: The subscriber must process/ingests the message flow faster than the publisher publishes them. 
+
+Just like when you build a dam, the reservoir on the top has a limited capacity of how much water can handle. The same for all services what are build to enable messaging solutions. They all come with a limited capacity of how much data they can hold in an unprocessed state. When that limit is reached, than the publisher gets hammered with errors of the service not being available, and at best, it will result in a massive loss of valuable data. Hence, the solution is to design a subsrcriber solution, that at any time and at any circumstance processes the data at a afaster rate that it is being published in the queue. That means, that whatever your compute solution you decide it needs to autoscale at much faster rate, and scale down as easier. Service such as Azure Functions or containers that can autoscale on demand are ideal solutions.
+
+This is not the situation you want to find yourself in:
+
+![Overflown dam](https://i.redd.it/f58a4ueg7m341.jpg)
+
+> Rule #2: Chose an appropriate lock period for your message. The advantage that all these messaging-based services have over any other storage mechanism, is better concurrency. They accomplish this in a very effective and lightning-fast manner, which is what you want. So, when a message is pulled fromthe queue from reading, that message is (almost) guaranteed that will not be available to any one subscriber to read, that way guarenteeing a read at-least-once method. However, there is not much magic that goes on here. These services are kind of blunt-intruments. They do this by using something called a lock period on the message, which is a timespan for the message to be invisible to anyone, exept to the one that triggered the read. Usually the default for this is 10 seconds, if you dont set it up yourself. Don't take the default! You need to analyze your context and find out that this lock period is sufficient for you. Obviosuly, the queue has no idea of what are you trying to do with the message. So if you are trying to process the message and save it somewhere, and that processing takes longer than the lock period (10 seconds) than that message becomes visible again for another subscriber, or the same subscriber, for processing. And if you are not careful, you will be creating an infinite loop of message processing, and overflow the system with messages. Imagine if you have 1M messages in the queue, well, from a processing pointof view this will double every 10 seconds, crashing down your infrastructure. Also, you will be creating millions and millions of duplicate data in your final store, via incomplete or delayed processing, as you will be saving the same messages over and over again.
+
+
+
 
 
 
