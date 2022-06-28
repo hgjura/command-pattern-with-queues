@@ -112,12 +112,37 @@ Another very important timespan is that of the lifetime of the message before ex
 
 Read below to find out about the dead-letter queue (DLQ). It is so important it gets to have its own section. If the messaging system is a car race, the dead-letter queue is the place you pull over to make repairs. It is the place where expired message, or messaging you have trouble processing get put in suspended animation and out ofthe way of the flood of messages in the main queue. Not all messaging systems offer a DLQ. Some of the more sofisticated ones, like Azure Service Bus, do offer it (optionally) when you construct your queues. So it is subqueue for troubled messages. But it is still part of the same queue, and ads to the volume limits of themain queue. Before you even start designing the subscribers and decide how to process the main queue, you will need to make plans about processing the dead-letter queue. If you don't that this will turn into a graveyard or trash can for messages, and over time will eventually fill in all the queue limits and overflow it.
 
-There is no prescribed recipe on how to process the DLQ. But most scenarios have a separate and independend process/subscriber that runs in a predefined interval, usually 60 or 90 minutes, and simply takes the messages from the DLQ and places them back into the main queue. Thus, clearing out the dead-letter queue.
-But this comes with its own set of problems. Let's combine the issues of Rule #2 and Rule #4, with this one. While a message has a TTL that expires a message from the main queue, a message in the DLQ never expires! So if you simply taking expired messages, or messages that fail due to processing errors and simply putting them back into the main queue every hour, than you simply are replicating the problems created by a failed iplementation of Rule#2 and Rule #4 throughout the day. So, you must always process the dead-letter queue, and never abandon messages in it, but you should do in a thoughtful way. Read some of the suggestions below on some of the best practices on how to implement this properly.  
+There is no prescribed recipe on how to process the DLQ. But most scenarios call for a separate and independend process/subscriber that runs in a predefined interval, usually 60 or 90 minutes, and simply takes the messages from the DLQ and places them back into the main queue, thus clearing out the dead-letter queue.
+But this comes with its own set of problems. Let's combine the issues of Rule #2 and Rule #4, with this one. While a message has a TTL that expires a message from the main queue, a message in the DLQ never expires! So if you are taking expired messages, or messages that fail due to processing errors, and putting them back into the main queue every hour, than you are simply replicating the problems created by a failed iplementation of Rule #2 and Rule #4 throughout the day. So, you must always process the dead-letter queue, and never abandon messages in it, but you should do in a thoughtful way. Read some of the suggestions below on some of the best practices on how to implement this properly.  
 
 > **Rule #6: Build lightweight subscribers.**
+
+I will continue to use the metaphor of the river and the queue being the dam. It is very possible that your business requirements are too take water from the river, put in bottles, and sell it to the store. While these are very valid business requirements, yu shuld not bundle them in the subscribers' logic, whose job is to extract messages from the queue. There is too much complexity and too many dependencies. You are taking too much risk, and it will be just a matter of time or circumstance, where you will be failing Rule #2 and Rule #4, and if Rule #3 and #5 are not implemented correctly, this will be an unmitigated disaster of data loss and failed infrastructure. 
+
+Queue-based infrastructure and messaging architectures, are infrastructure concepts and not development ones. They goal is to facilitate the transporting of data from Point A to Point B, where Point A is the wild and unpredictable part of the river, and Point B is structured, channeled and controlled part of it. It should be agnostic to what you do from a devlopment or business logic/features point of view.
+
+How lightweight should the subscribers be? That will depend very much in your context. However, in most instances, they complete two tasks: 1) retrive a message and do a light inspection of properties and content and 2) save the message to a data store, that is close to your envirnment, and that is highly avaiable and reliable.
+
+In the cloud world, these subscribers are best fit for services like Azure Functions or light-weight containers, that can scale on demand, and run at a very specific time limits. Azure Functions or AWS Lambdas make good candidates. Azuer Functions, for example, expire after 2 mins of running, so you cannot afford to place to much processing logic in it. 
+ 
 > **Rule #7: Always handle exceptions.**
+
+This seems as stating the obvious, but it cannot be stressed more. The subscribers should catch all exceptions; handle the queue-specific ones; handle any obvious known exceptions; and bubble the rest upward, to be handled by your code. 
+
+Imagine that by a strange circumstance the processing of your message in a subscriber fails to a division-by-zero exception. This would create an infinite loop of failed messages, due to Rule #2, #4 and #5 above. It will like a tsunami of messages, for a short period of time, until you oevrflow the queue and bring down your service. Well, all could of have been avoided by simply handling a very common exception, and a good implementation of the Strategy #2 of handling deadletter queue below. This would be a difference of trying to process a message once or twice vs. one hundred thousand times.
+
+A good exception handling strategy here, can avoid the worse of disasters, or at least aliviate unnecessary trafic strains on the queue.
+
+
 > **Rule #8: Always analyze the flow of your messages and make business decisions and rules about your data flow.**      
+
+Everything that was mentions up to this point is good, but there are no predefined recipes for it all. It all depends on the data and the business rules you need to apply. 
+
+Though a queue transport all data the same way, data is not the same all the time. Let say you are using a queue to transport event logs, and another to transport accounting transaction data. The way you implement Rule #2, #4, and #5 are very different for both of them. And they should be! The risk tolerance for these typses is very different.
+
+So a proper analisys of the data flow, data type, and its importance to the business, should reveal enough information for you to properly implement all the above rules. 
+
+The key here is to come up with enough strict business rules, to not leave room for ambiguity, and cover 100% of the probabilities. Ths will result in a series of business decisions that will regulate the data flow. You will need to find answers and define rules for questions such as: What if there are messages that a subscriber cannot recognize and process, what do we with them? What do we do with a message that fails while processing, more than 3 times, orafter trying for 2 minutes? How do we handle expried messages? And the answer cannot be "nothing", or "let's put it aside until we know more", or "keep trying until it works". These are ambiguous answers that will eventually lead to a system failure. 
 
 
 
