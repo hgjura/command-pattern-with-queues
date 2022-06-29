@@ -143,6 +143,10 @@ So a proper analysis of the data flow, data type, and its importance to the busi
 
 The key here is to come up with enough strict business rules, to not leave room for ambiguity, and cover 100% of the probabilities. This will result in a series of business decisions that will regulate the data flow. You will need to find answers and define rules for questions such as: What if there are messages that a subscriber cannot recognize and process, what do we with them? What do we do with a message that fails while processing, more than 3 times, or after trying for 2 minutes? How do we handle expired messages? And the answer cannot be "nothing", or "let's put it aside until we know more", or "keep trying until it works". These are ambiguous answers that will eventually lead to a system failure. 
 
+**Conclusion**
+
+What is common about all these rules, is that they try the best they can to keep the high-speed flow of data uninterrupted and the queue unclogged. This should be your mission as well. Whatever you can possibly do to avoid any situation where the flow of data slows or stops you should do it. 
+
 
 ## Important rules when dealing with messaging patterns in general, and PubSub in particular
 
@@ -245,7 +249,7 @@ This solution follows the same pattern or behavior.
 
 
 
-## Usage
+## Usage of the project
 
 The solution is made of four parts:
 
