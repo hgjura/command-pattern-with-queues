@@ -316,8 +316,10 @@ private static async Task<int> ExecuteCommandsAsync(ILogger logger)
         .RegisterCommand<RandomDogCommand>()
         .RegisterCommand<RandomFoxCommand>()
         .RegisterCommand<AddNumbersCommand>()
-        .RegisterResponse<AddNumbersCommand, AddNumbersResponse>();
-    var c = new Commands(_container, Configuration["StorageAccountName"], Configuration["StorageAccountKey"], logger);
+        .RegisterCommand<AddNumbersCommand, AddNumbersResponse>();
+
+    var c = await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], MaxDequeueCountForError: 3, Log: logger));
+
     var result1 = await c.ExecuteCommands();
     var result2 = await c.ExecuteResponses();
     // return number of commands + responses executed
@@ -364,8 +366,34 @@ Also make sure to pass to the command context, as a ```dynamic``` object, to the
 
 And that's that!
 
+### Optional connection parameters
+You can use the ServerTools packages with various services (currently with Azure Storage Queues and Azure Service Bus). Each implementation uses various service-specific parameters that get passed on through the ```ConnectionOptions``` object. Here is a list the most common ones.
 
+#### Azuer Storage Queues
+Usage : 
+```csharp
+var c = await new CloudCommands().InitializeAsync(new CommandContainer(), new AzureStorageQueuesConnectionOptions(config["StorageAccountName"], config["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));
+```
 
+**AzureStorageQueuesConnectionOptions:** 
+
+* AccountName: This the Storage account name in Azure. For ex., ```test0storage```
+* AccountKey: This the Storage account key in Azure. For ex., ```L3YFxRNuw15SjyOLcxhrt*gOCG2************+t****Bwj0yXeD4C8CV*****3+owNsG1Pe7Rg==```
+* MaxDequeueCountForError: This defaults to 5, if not set. This is the number of tries a message would fail before it is sent to the DLQ. It is an ```int``` so you can set it as high or low as you want, but between 3-5 would be optimal range.
+* Log: defaults to ```null```. This is an ````ILogger``` so you can output various diagnostic logs, or any other logs, during execution of commands.
+* RetryPolicy: This is an ```AsyncPolicy``` object form the Polly library. When set, all calls to the underlying service will use this policy to do retries. 
+* QueueNamePrefix: This is a prefix to the name of the underlying queues that the service creates. For ex., if it is set to ```test```, the underlying commands queue will be named ```test-reqs``` and ```test-reqs-dlq```. If not set, it will default to ```cmd```.
+* MaxMessagesToRetrieve: This is the number of messages that the ```ExecuteCommandsAsync``` retrives in one go. It defaults to 32.
+* VisibilityTimeout: This is the period (timespan) for which a message remains invisible after it is read. Similar to lock period in Azuer Service Bus messages, or other services. It defaults to 60 seconds. Anything from 10 to 60 seconds would be considered optimal.
+
+**AzureServiceBusConnectionOptions:** 
+* ConnectionString: This is the connection string to the Azure Service Bus.
+* MaxDequeueCountForError: This defaults to 5, if not set. This is the number of tries a message would fail before it is sent to the DLQ. It is an ```int``` so you can set it as high or low as you want, but between 3-5 would be optimal range.
+* Log: defaults to ```null```. This is an ````ILogger``` so you can output various diagnostic logs, or any other logs, during execution of commands.
+* RetryPolicy: This is an ```AsyncPolicy``` object form the Polly library. When set, all calls to the underlying service will use this policy to do retries. 
+* QueueNamePrefix: This is a prefix to the name of the underlying queues that the service creates. For ex., if it is set to ```test```, the underlying commands queue will be named ```test-reqs``` and ```test-reqs-dlq```. If not set, it will default to ```cmd```.
+* MaxMessagesToRetrieve: This is the number of messages that the ```ExecuteCommandsAsync``` retrives in one go. It defaults to 32.
+* MaxWaitTime: This is the timespan the connection to the service bus will be opened, regardless if there are messages in the queue or not.It defaults to 60 seconds. Anything from 10 to 60 seconds would be considered optimal.
 
 
 ## Roadmap

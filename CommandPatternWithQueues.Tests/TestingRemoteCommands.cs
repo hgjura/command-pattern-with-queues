@@ -3,10 +3,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Debug;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ServerTools.ServerCommands;
-using ServerTools.ServerCommands.AzureStorageQueues;
+using ASB = ServerTools.ServerCommands.AzureServiceBus;
+using ASQ = ServerTools.ServerCommands.AzureStorageQueues;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
+using ServerTools.ServerCommands.AzureStorageQueues;
 
 namespace CommandPatternWithQueues.Tests
 {
@@ -38,14 +40,16 @@ namespace CommandPatternWithQueues.Tests
             _container = new CommandContainer();
             _queueNamePrefix = nameof(TestingRemoteCommands).ToLower();
 
-            _ = await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, null, QueueNamePrefix: _queueNamePrefix));
-
+            _ = await new ASQ.CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], MaxDequeueCountForError: 3, Log: null, QueueNamePrefix: _queueNamePrefix)); //Azure Storage Queues
+            //_ = await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, null, QueueNamePrefix: _queueNamePrefix)); //Azure Storage Queues
+            //_ = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], 3, null, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));  //Azure Service Bus
         }
 
         [ClassCleanup()]
         public static async Task CleanTestSuiteAsync()
         {
-            _ = (await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, null, QueueNamePrefix: _queueNamePrefix))).ClearAllAsync();
+            //_ = (await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, null, QueueNamePrefix: _queueNamePrefix))).ClearAllAsync();
+            _ = (await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], 3, null, QueueNamePrefix: _queueNamePrefix))).ClearAllAsync();
         }
 
 
@@ -63,11 +67,10 @@ namespace CommandPatternWithQueues.Tests
                 .RegisterCommand<RandomCatCommand>()
                 .RegisterCommand<RandomDogCommand>()
                 .RegisterCommand<RandomFoxCommand>()
-                .RegisterCommand<AddNumbersCommand>()
-                .RegisterResponse<AddNumbersCommand, AddNumbersResponse>();
+                .RegisterCommand<AddNumbersCommand, AddNumbersResponse>();
 
-            var c = await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, logger, QueueNamePrefix: _queueNamePrefix));
-
+            //var c = await new ASQ.CloudCommands().InitializeAsync(_container, new ASQ.AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, logger, QueueNamePrefix: _queueNamePrefix));
+            var c = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));
 
             _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
 
@@ -75,7 +78,7 @@ namespace CommandPatternWithQueues.Tests
 
             _ = await c.PostCommandAsync<RandomFoxCommand>(new { Name = "Penny" });
 
-            _ = await c.PostCommandAsync<AddNumbersCommand > (new { Number1 = 2, Number2 = 3 });
+            _ = await c.PostCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
 
             var result1 = await c.ExecuteCommandsAsync();
 
@@ -117,7 +120,7 @@ namespace CommandPatternWithQueues.Tests
                 .RegisterCommand<AddNumbersCommand>();
 
 
-            var c = await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, logger, QueueNamePrefix: _queueNamePrefix));
+            var c = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));
 
             _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
 
@@ -131,7 +134,7 @@ namespace CommandPatternWithQueues.Tests
 
 
             //check if something was wrong or if any items were processed at all
-            Assert.IsTrue(!result.Item1); 
+            Assert.IsTrue(!result.Item1);
 
             //check if 1 or more items were processed
             Assert.IsTrue(result.Item2 > 0);
@@ -155,7 +158,7 @@ namespace CommandPatternWithQueues.Tests
         //        .RegisterCommand<RandomFoxCommand>()
         //        .RegisterCommand<AddNumbersCommand>();
 
-        //    var c = new Commands(_container, Configuration["StorageAccounName"], Configuration["StorageAccountKey"], logger, QueueNamePrefix: "commands-test");
+        //    var c = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));
 
         //    c.AddToQueue<RandomCatCommand>(new { Name = "Laika" });
         //    c.AddToQueue<RandomDogCommand>(new { Name = "Scooby-Doo" });
@@ -166,13 +169,13 @@ namespace CommandPatternWithQueues.Tests
         //    var result = await c.ExecuteCommands();
 
         //    //check if something was wrong or if any items were processed at all
-        //    Assert.IsTrue(result.Item1); 
+        //    Assert.IsTrue(result.Item1);
 
         //    //check if 1 or more items were processed
-        //    Assert.IsTrue(result.Item2 > 0 && result.Item2 == 3); 
+        //    Assert.IsTrue(result.Item2 > 0 && result.Item2 == 3);
 
         //    //check if there was any errors
-        //    Assert.IsTrue(result.Item3.Count == 0); 
+        //    Assert.IsTrue(result.Item3.Count == 0);
 
         //}
     }

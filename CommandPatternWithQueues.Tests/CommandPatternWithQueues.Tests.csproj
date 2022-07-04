@@ -15,7 +15,8 @@
     <PackageReference Include="MSTest.TestAdapter" Version="2.1.0" />
     <PackageReference Include="MSTest.TestFramework" Version="2.1.0" />
     <PackageReference Include="coverlet.collector" Version="1.2.0" />
-    <PackageReference Include="ServerTools.ServerCommands.AzureStorageQueues" Version="1.0.1-2511898392" />
+    <PackageReference Include="ServerTools.ServerCommands.AzureServiceBus" Version="1.0.1-2612144896" />
+    <PackageReference Include="ServerTools.ServerCommands.AzureStorageQueues" Version="1.0.1-2612144896" />
   </ItemGroup>
 
   <ItemGroup>

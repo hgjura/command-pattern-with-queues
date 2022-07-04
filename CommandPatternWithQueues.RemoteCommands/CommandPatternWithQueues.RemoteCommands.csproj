@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="6.0.0" />
-    <PackageReference Include="ServerTools.ServerCommands" Version="1.0.1-2552241158" />
+    <PackageReference Include="ServerTools.ServerCommands" Version="1.0.1-2612144896" />
   </ItemGroup>
 
 </Project>

@@ -101,8 +101,7 @@ namespace CommandPatternWithQueues.ExecutingFunctions
             {
                 return ex.Message;
             }
-        }
-        
+        }      
         private static async Task<string> HandleDlqAsync(IConfiguration config, ILogger logger)
         {
             var commands = await new CloudCommands().InitializeAsync(new CommandContainer(), new AzureStorageQueuesConnectionOptions(config["StorageAccountName"], config["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));

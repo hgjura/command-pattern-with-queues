@@ -50,12 +50,12 @@ namespace CommandPatternWithQueues.RemoteCommands
                 
                 logger.LogInformation($"<< New random fox by name of {name} retrieved. Check it out here: {url} >>");
 
-                return (true, null, null, new CommandMetadata());
+                return (true, null, null, metadata);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex.Message);
-                return (false, ex, null, new CommandMetadata());
+                return (false, ex, null, metadata);
             }
         }
     }
