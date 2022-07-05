@@ -7,7 +7,7 @@
 <div align="center">
   <h1>Command pattern with queues</h1>
   
-  <h2>An example on how to use ServerTools.ServerCommands package.</h2>
+  <h2>An example on how to use ServerTools.ServerCommands packages.</h2>
   <!-- <a href="#about"><strong>Explore the screenshots »</strong></a>
   <br />
   <br /> -->
@@ -369,12 +369,6 @@ And that's that!
 ### Optional connection parameters
 You can use the ServerTools packages with various services (currently with Azure Storage Queues and Azure Service Bus). Each implementation uses various service-specific parameters that get passed on through the ```ConnectionOptions``` object. Here is a list the most common ones.
 
-#### Azuer Storage Queues
-Usage : 
-```csharp
-var c = await new CloudCommands().InitializeAsync(new CommandContainer(), new AzureStorageQueuesConnectionOptions(config["StorageAccountName"], config["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));
-```
-
 **AzureStorageQueuesConnectionOptions:** 
 
 * AccountName: This the Storage account name in Azure. For ex., ```test0storage```
@@ -389,7 +383,7 @@ var c = await new CloudCommands().InitializeAsync(new CommandContainer(), new Az
 **AzureServiceBusConnectionOptions:** 
 * ConnectionString: This is the connection string to the Azure Service Bus.
 * MaxDequeueCountForError: This defaults to 5, if not set. This is the number of tries a message would fail before it is sent to the DLQ. It is an ```int``` so you can set it as high or low as you want, but between 3-5 would be optimal range.
-* Log: defaults to ```null```. This is an ````ILogger``` so you can output various diagnostic logs, or any other logs, during execution of commands.
+* Log: defaults to ```null```. This is an ```ILogger``` so you can output various diagnostic logs, or any other logs, during execution of commands.
 * RetryPolicy: This is an ```AsyncPolicy``` object form the Polly library. When set, all calls to the underlying service will use this policy to do retries. 
 * QueueNamePrefix: This is a prefix to the name of the underlying queues that the service creates. For ex., if it is set to ```test```, the underlying commands queue will be named ```test-reqs``` and ```test-reqs-dlq```. If not set, it will default to ```cmd```.
 * MaxMessagesToRetrieve: This is the number of messages that the ```ExecuteCommandsAsync``` retrives in one go. It defaults to 32.
