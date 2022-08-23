@@ -49,7 +49,7 @@ namespace CommandPatternWithQueues.Tests
         public static async Task CleanTestSuiteAsync()
         {
             //_ = (await new CloudCommands().InitializeAsync(_container, new AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, null, QueueNamePrefix: _queueNamePrefix))).ClearAllAsync();
-            _ = (await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], 3, null, QueueNamePrefix: _queueNamePrefix))).ClearAllAsync();
+            _ = (await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], ASB.AzureServiceBusTier.Standard, 3, null, QueueNamePrefix: _queueNamePrefix))).ClearAllAsync();
         }
 
 
@@ -70,7 +70,7 @@ namespace CommandPatternWithQueues.Tests
                 .RegisterCommand<AddNumbersCommand, AddNumbersResponse>();
 
             //var c = await new ASQ.CloudCommands().InitializeAsync(_container, new ASQ.AzureStorageQueuesConnectionOptions(Configuration["StorageAccountName"], Configuration["StorageAccountKey"], 3, logger, QueueNamePrefix: _queueNamePrefix));
-            var c = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));
+            var c = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], ASB.AzureServiceBusTier.Standard, 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));
 
             _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
 
@@ -120,7 +120,7 @@ namespace CommandPatternWithQueues.Tests
                 .RegisterCommand<AddNumbersCommand>();
 
 
-            var c = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));
+            var c = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], ASB.AzureServiceBusTier.Standard, 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));
 
             _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
 
@@ -143,6 +143,45 @@ namespace CommandPatternWithQueues.Tests
             Assert.IsTrue(result.Item3.Count > 0); //This value keeps the list of error messages that were encountered. The format of the messages is "{MessageId}:{Exception Messgae}". After retrying x amount of times the message is moved to the deadletterqueue (see code for how this is implemented)
 
         }
+
+        [TestMethod]
+        public async Task TestingOrderedMessagePostAndRetriveCommands()
+        {
+            var logger = new DebugLoggerProvider().CreateLogger("default");
+            using var client = new HttpClient();
+
+            _container
+                .Use(logger)
+                .Use(client)
+                .RegisterCommand<RandomCatCommand>()
+                .RegisterCommand<RandomDogCommand>()
+                .RegisterCommand<RandomFoxCommand>()
+                .RegisterCommand<AddNumbersCommand>();
+
+            var b = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], ASB.AzureServiceBusTier.Standard, 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));
+
+            var c = (ASB.CloudCommands)b;
+            var session = Guid.NewGuid();
+
+            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 1, Number2 = 0 }, session, 1, false);
+            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 0 }, session, 2, false);
+            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 3, Number2 = 0 }, session, 3, false);
+            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 4, Number2 = 0 }, session, 4, false);
+            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 5, Number2 = 0 }, session, 5, true);
+
+            var result = await c.ExecuteCommandsAsync();
+
+            //check if something was wrong or if any items were processed at all
+            Assert.IsTrue(result.Item1);
+
+            //check if 1 or more items were processed
+            Assert.IsTrue(result.Item2 > 0 && result.Item2 == 3);
+
+            //check if there was any errors
+            Assert.IsTrue(result.Item3.Count == 0);
+
+        }
+
 
         //[TestMethod]
         //public async Task TestingQueuePostAndRetriveCommands()

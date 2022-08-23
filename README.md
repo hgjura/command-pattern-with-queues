@@ -272,32 +272,32 @@ Next, in the ```FunctionImplementations``` I define the orchestrator code as fol
  ```csharp
 public static async Task<int> FunctionWrapperExecuteCommandsAsync(ILogger logger)
 {
-            int r = 0;
+    int r = 0;
 
-            try
-            {
-                r = await ExecuteCommandsAsync(config, logger);
+    try
+    {
+        r = await ExecuteCommandsAsync(config, logger);
 
-                if (r > 0)
-                {
-                    logger.LogWarning($"{r} commands were succesfuly executed.");
-                }
-                else
-                {
-                    logger.LogWarning($"No commands were executed. Pausing for {FunctionSettingsEternalDurable.MinutesToWaitAfterNoCommandsExecuted} min(s).");
+        if (r > 0)
+        {
+            logger.LogWarning($"{r} commands were succesfuly executed.");
+        }
+        else
+        {
+            logger.LogWarning($"No commands were executed. Pausing for {FunctionSettingsEternalDurable.MinutesToWaitAfterNoCommandsExecuted} min(s).");
 
-                    r = FunctionSettingsEternalDurable.MinutesToWaitAfterNoCommandsExecuted;
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError($"{ex.Message} [{ex.InnerException?.Message}]");
-                logger.LogWarning($"An error ocurred. Pausing for {FunctionSettingsEternalDurable.MinutesToWaitAfterErrorInCommandsExecution} min(s).");
+            r = FunctionSettingsEternalDurable.MinutesToWaitAfterNoCommandsExecuted;
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError($"{ex.Message} [{ex.InnerException?.Message}]");
+        logger.LogWarning($"An error ocurred. Pausing for {FunctionSettingsEternalDurable.MinutesToWaitAfterErrorInCommandsExecution} min(s).");
 
-                r = FunctionSettingsEternalDurable.MinutesToWaitAfterErrorInCommandsExecution;
-            }
+        r = FunctionSettingsEternalDurable.MinutesToWaitAfterErrorInCommandsExecution;
+    }
 
-            return r;
+return r;
 }
   ``` 
 This piece of code orchestrates the lifecycle of the Durable Function. Practically, it calls the main function ```ExecuteCommandsAsync```and acts accordingly depending on the returned value. If the function return > 0, it means 1 or more commands were remotely executed, so re-run the function again. If the function returns 0, means that no commands were executed, and so snooze the next run by as many minutes as defined in ```MinutesToWaitAfterNoCommandsExecuted```. If the function throws an unhandled exception, than log exception and snooze by as many minutes as defined in ```MinutesToWaitAfterErrorInCommandsExecution```. 
@@ -332,33 +332,32 @@ Prior to calling ```ExecuteCommands``` or ```ExecuteResponses```, need to regist
 Next, and optionally, I created an http triggered function that simply creates and posts a few sample commands, for the above to process.
 
 ```csharp
-        public static async Task<string> PostCommandsAsync(IConfiguration config, ILogger logger)
-        {
+public static async Task<string> PostCommandsAsync(IConfiguration config, ILogger logger)
+{
 
-            try
-            {
+    try
+    {
 
-                var c = await new CloudCommands().InitializeAsync(new CommandContainer(), new AzureStorageQueuesConnectionOptions(config["StorageAccountName"], config["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));
+        var c = await new CloudCommands().InitializeAsync(new CommandContainer(), new AzureStorageQueuesConnectionOptions(config["StorageAccountName"], config["StorageAccountKey"], 3, logger, QueueNamePrefix: "test-project"));
 
-                _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
+        _ = await c.PostCommandAsync<RandomCatCommand>(new { Name = "Laika" });
 
-                _ = await c.PostCommandAsync<RandomDogCommand>(new { Name = "Scooby-Doo" });
+        _ = await c.PostCommandAsync<RandomDogCommand>(new { Name = "Scooby-Doo" });
 
-                _ = await c.PostCommandAsync<RandomFoxCommand>(new { Name = "Penny" });
+        _ = await c.PostCommandAsync<RandomFoxCommand>(new { Name = "Penny" });
 
-                _ = await c.PostCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
+        _ = await c.PostCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 3 });
 
 
-                return "Ok.";
-            }
-            catch (Exception ex)
-            {
-                return ex.Message;
+        return "Ok.";
+    }
+    catch (Exception ex)
+    {
+        return ex.Message;
 
-            }
+    }
 
-        }
-
+}
 ```
 Here you dont need to register all commands before you post. The ```PostCommand``` only need to kow the type of the command and the command context, before posting it. The container, at this time, does not resolve the object, only needs to know its type.
 
