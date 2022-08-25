@@ -9,8 +9,8 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="6.0.1" />
     <PackageReference Include="microsoft.extensions.http.polly" Version="6.0.8" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="4.1.1" />
-    <PackageReference Include="ServerTools.ServerCommands.AzureServiceBus" Version="1.0.6-2900296599" />
-    <PackageReference Include="ServerTools.ServerCommands.AzureStorageQueues" Version="1.0.6-2900296599" />
+    <PackageReference Include="ServerTools.ServerCommands.AzureServiceBus" Version="1.0.5.2-2915118701" />
+    <PackageReference Include="ServerTools.ServerCommands.AzureStorageQueues" Version="1.0.5.2-2915118701" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CommandPatternWithQueues.RemoteCommands\CommandPatternWithQueues.RemoteCommands.csproj" />

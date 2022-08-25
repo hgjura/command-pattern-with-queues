@@ -147,39 +147,50 @@ namespace CommandPatternWithQueues.Tests
         [TestMethod]
         public async Task TestingOrderedMessagePostAndRetriveCommands()
         {
-            var logger = new DebugLoggerProvider().CreateLogger("default");
-            using var client = new HttpClient();
 
-            _container
-                .Use(logger)
-                .Use(client)
-                .RegisterCommand<RandomCatCommand>()
-                .RegisterCommand<RandomDogCommand>()
-                .RegisterCommand<RandomFoxCommand>()
-                .RegisterCommand<AddNumbersCommand>();
+            try
+            {
 
-            var b = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], ASB.AzureServiceBusTier.Standard, 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10)));
 
-            var c = (ASB.CloudCommands)b;
-            var session = Guid.NewGuid();
+                var logger = new DebugLoggerProvider().CreateLogger("default");
+                using var client = new HttpClient();
 
-            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 1, Number2 = 0 }, session, 1, false);
-            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 0 }, session, 2, false);
-            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 3, Number2 = 0 }, session, 3, false);
-            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 4, Number2 = 0 }, session, 4, false);
-            _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 5, Number2 = 0 }, session, 5, true);
+                _container
+                    .Use(logger)
+                    .Use(client)
+                    .RegisterCommand<RandomCatCommand>()
+                    .RegisterCommand<RandomDogCommand>()
+                    .RegisterCommand<RandomFoxCommand>()
+                    .RegisterCommand<AddNumbersCommand, AddNumbersResponse>();
 
-            var result = await c.ExecuteCommandsAsync();
+                var b = await new ASB.CloudCommands().InitializeAsync(_container, new ASB.AzureServiceBusConnectionOptions(Configuration["ASBConnectionString"], ASB.AzureServiceBusTier.Standard, 3, logger, QueueNamePrefix: _queueNamePrefix, MaxWaitTime: TimeSpan.FromSeconds(10), RequiresSession: true));
 
-            //check if something was wrong or if any items were processed at all
-            Assert.IsTrue(result.Item1);
+                var c = (ASB.CloudCommands)b;
+                var session = Guid.NewGuid();
 
-            //check if 1 or more items were processed
-            Assert.IsTrue(result.Item2 > 0 && result.Item2 == 3);
+                _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 1, Number2 = 0 }, session, 1, false);
+                _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 2, Number2 = 0 }, session, 2, false);
+                _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 3, Number2 = 0 }, session, 3, false);
+                _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 4, Number2 = 0 }, session, 4, false);
+                _ = await c.PostOrderedCommandAsync<AddNumbersCommand>(new { Number1 = 5, Number2 = 0 }, session, 5, true);
 
-            //check if there was any errors
-            Assert.IsTrue(result.Item3.Count == 0);
+                var result = await c.ExecuteCommandsAsync();
+                var result1 = await c.ExecuteResponsesAsync();
 
+                //check if something was wrong or if any items were processed at all
+                Assert.IsTrue(result.Item1);
+
+                //check if 1 or more items were processed
+                Assert.IsTrue(result.Item2 > 0 && result.Item2 == 5);
+
+                //check if there was any errors
+                Assert.IsTrue(result.Item3.Count == 0);
+
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
         }
 
 

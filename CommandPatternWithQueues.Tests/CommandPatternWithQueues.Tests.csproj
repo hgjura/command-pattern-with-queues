@@ -18,8 +18,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="ServerTools.ServerCommands.AzureServiceBus" Version="1.0.6-2900296599" />
-    <PackageReference Include="ServerTools.ServerCommands.AzureStorageQueues" Version="1.0.6-2900296599" />
+    <PackageReference Include="ServerTools.ServerCommands.AzureServiceBus" Version="1.0.5.2-2915118701" />
+    <PackageReference Include="ServerTools.ServerCommands.AzureStorageQueues" Version="1.0.5.2-2915118701" />
   </ItemGroup>
 
   <ItemGroup>
